@@ -28,3 +28,10 @@ demo-artifacts/
 backend/data/*.db
 backend/data/*.db-journal
 
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
