@@ -1,0 +1,72 @@
+{
+  "enabledControls": ["edr", "siem", "mfa", "seg", "backup", "pam"],
+  "controlMaturity": {
+    "edr": "advanced",
+    "siem": "intermediate",
+    "mfa": "basic",
+    "seg": "intermediate",
+    "backup": "advanced",
+    "pam": "basic"
+  },
+  "detectionRules": [
+    {
+      "id": "r1",
+      "title": "PowerShell Encoded Command",
+      "level": "high",
+      "status": "stable",
+      "source": "sigma",
+      "techniques": ["T1059.001"]
+    },
+    {
+      "id": "r2",
+      "title": "LSASS Dump via Mimikatz",
+      "level": "high",
+      "source": "sigma",
+      "techniques": ["T1003.001"]
+    },
+    {
+      "id": "r3",
+      "title": "Scheduled Task Persistence",
+      "level": "medium",
+      "source": "sigma",
+      "techniques": ["T1053.005"]
+    },
+    {
+      "id": "r4",
+      "title": "Ransomware - VSS Deletion",
+      "level": "critical",
+      "source": "sigma",
+      "techniques": ["T1486", "T1490"]
+    },
+    {
+      "id": "r5",
+      "title": "Parent-level rule T1059",
+      "level": "low",
+      "source": "sigma",
+      "techniques": ["T1059"]
+    },
+    {
+      "id": "r6",
+      "title": "Navigator: T1003",
+      "level": "medium",
+      "status": "imported",
+      "source": "navigator",
+      "techniques": ["T1003"]
+    },
+    {
+      "id": "r7",
+      "title": "Unknown sub-technique T1574.002",
+      "level": "medium",
+      "source": "sigma",
+      "techniques": ["T1574.002"]
+    },
+    {
+      "id": "r8",
+      "title": "Unknown parent technique T1622",
+      "level": "high",
+      "source": "sigma",
+      "techniques": ["T1622"]
+    }
+  ],
+  "selectedActors": ["apt28", "lockbit"]
+}

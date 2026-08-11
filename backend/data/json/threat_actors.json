@@ -1,0 +1,273 @@
+[
+  {
+    "id": "apt28",
+    "name": "APT28 (Fancy Bear)",
+    "aliases": [
+      "Sofacy",
+      "STRONTIUM",
+      "Pawn Storm"
+    ],
+    "origin": "🇷🇺 Russia",
+    "sector": [
+      "Government",
+      "Military",
+      "Energy",
+      "Media"
+    ],
+    "description": "Russian state-sponsored group linked to GRU. Known for credential theft, spearphishing, and espionage campaigns.",
+    "techniques": [
+      "T1566.001",
+      "T1566.002",
+      "T1078",
+      "T1110.003",
+      "T1059.001",
+      "T1053.005",
+      "T1547.001",
+      "T1003.001",
+      "T1558.003",
+      "T1070.001",
+      "T1036.005",
+      "T1027",
+      "T1082",
+      "T1083",
+      "T1016",
+      "T1071.001",
+      "T1573.002"
+    ]
+  },
+  {
+    "id": "apt29",
+    "name": "APT29 (Cozy Bear)",
+    "aliases": [
+      "Midnight Blizzard",
+      "NOBELIUM",
+      "The Dukes"
+    ],
+    "origin": "🇷🇺 Russia",
+    "sector": [
+      "Government",
+      "Think Tanks",
+      "Healthcare",
+      "Technology"
+    ],
+    "description": "Sophisticated Russian SVR group behind SolarWinds supply chain attack. Known for stealthy, long-term access.",
+    "techniques": [
+      "T1195",
+      "T1566.001",
+      "T1078.004",
+      "T1059.001",
+      "T1059.003",
+      "T1550.002",
+      "T1021.001",
+      "T1070",
+      "T1027",
+      "T1562.001",
+      "T1041",
+      "T1567.002",
+      "T1071.001",
+      "T1573",
+      "T1136",
+      "T1098"
+    ]
+  },
+  {
+    "id": "apt41",
+    "name": "APT41 (Double Dragon)",
+    "aliases": [
+      "Winnti",
+      "Barium",
+      "Brass Typhoon"
+    ],
+    "origin": "🇨🇳 China",
+    "sector": [
+      "Healthcare",
+      "Technology",
+      "Gaming",
+      "Telecommunications"
+    ],
+    "description": "Chinese state-sponsored group conducting both espionage and financially-motivated cybercrime.",
+    "techniques": [
+      "T1190",
+      "T1133",
+      "T1566.001",
+      "T1059.001",
+      "T1059.003",
+      "T1047",
+      "T1055",
+      "T1055.001",
+      "T1574",
+      "T1543.003",
+      "T1003.001",
+      "T1558",
+      "T1021.002",
+      "T1021.001",
+      "T1486",
+      "T1490"
+    ]
+  },
+  {
+    "id": "lazarus",
+    "name": "Lazarus Group",
+    "aliases": [
+      "Hidden Cobra",
+      "ZINC",
+      "Sapphire Sleet"
+    ],
+    "origin": "🇰🇵 North Korea",
+    "sector": [
+      "Finance",
+      "Cryptocurrency",
+      "Defense",
+      "Government"
+    ],
+    "description": "North Korean state group known for financial theft, ransomware, and destructive attacks. Behind WannaCry and major crypto heists.",
+    "techniques": [
+      "T1566.001",
+      "T1566.002",
+      "T1189",
+      "T1059.001",
+      "T1059.003",
+      "T1486",
+      "T1490",
+      "T1485",
+      "T1041",
+      "T1048",
+      "T1567.002",
+      "T1070.001",
+      "T1036",
+      "T1055",
+      "T1027",
+      "T1021.001"
+    ]
+  },
+  {
+    "id": "lockbit",
+    "name": "LockBit Ransomware",
+    "aliases": [
+      "LockBit 3.0",
+      "LockBit Black"
+    ],
+    "origin": "💰 Criminal",
+    "sector": [
+      "All sectors (opportunistic)"
+    ],
+    "description": "Prolific ransomware-as-a-service group targeting organizations globally with double extortion tactics.",
+    "techniques": [
+      "T1486",
+      "T1490",
+      "T1489",
+      "T1078",
+      "T1133",
+      "T1110.003",
+      "T1566.001",
+      "T1059.001",
+      "T1059.003",
+      "T1021.001",
+      "T1021.002",
+      "T1550.002",
+      "T1070.001",
+      "T1070.004",
+      "T1041",
+      "T1567"
+    ]
+  },
+  {
+    "id": "scattered-spider",
+    "name": "Scattered Spider",
+    "aliases": [
+      "UNC3944",
+      "Muddled Libra"
+    ],
+    "origin": "🌐 Criminal (English-speaking)",
+    "sector": [
+      "Hospitality",
+      "Gaming",
+      "Telecommunications",
+      "Finance"
+    ],
+    "description": "Social engineering experts targeting identity systems (MFA bypass, SIM swapping). Behind MGM and Caesars attacks.",
+    "techniques": [
+      "T1566.002",
+      "T1078",
+      "T1078.004",
+      "T1556",
+      "T1539",
+      "T1528",
+      "T1621",
+      "T1110.003",
+      "T1537",
+      "T1567.002",
+      "T1486",
+      "T1657",
+      "T1136.001",
+      "T1098"
+    ]
+  },
+  {
+    "id": "volt-typhoon",
+    "name": "Volt Typhoon",
+    "aliases": [
+      "Bronze Silhouette",
+      "Dev-0391"
+    ],
+    "origin": "🇨🇳 China",
+    "sector": [
+      "Critical Infrastructure",
+      "Military",
+      "Communications",
+      "Energy"
+    ],
+    "description": "Chinese APT focused on pre-positioning in US critical infrastructure. Extensive use of living-off-the-land techniques.",
+    "techniques": [
+      "T1190",
+      "T1133",
+      "T1078",
+      "T1059.003",
+      "T1059.004",
+      "T1047",
+      "T1021.004",
+      "T1021.001",
+      "T1027",
+      "T1036",
+      "T1070",
+      "T1082",
+      "T1083",
+      "T1046",
+      "T1041",
+      "T1090"
+    ]
+  },
+  {
+    "id": "fin7",
+    "name": "FIN7",
+    "aliases": [
+      "Carbanak",
+      "Sangria Tempest"
+    ],
+    "origin": "💰 Criminal",
+    "sector": [
+      "Retail",
+      "Hospitality",
+      "Finance",
+      "Restaurant"
+    ],
+    "description": "Sophisticated financial cybercrime group targeting POS systems and payment data with spearphishing.",
+    "techniques": [
+      "T1566.001",
+      "T1566.002",
+      "T1059.001",
+      "T1059.003",
+      "T1204.002",
+      "T1055",
+      "T1547.001",
+      "T1003.001",
+      "T1555",
+      "T1021.001",
+      "T1021.002",
+      "T1041",
+      "T1041",
+      "T1113",
+      "T1056.001"
+    ]
+  }
+]

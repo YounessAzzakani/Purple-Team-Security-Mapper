@@ -1,0 +1,207 @@
+{
+  "name": "Purple Team Mapper — Test Navigator Layer",
+  "versions": {
+    "attack": "15",
+    "navigator": "4.9",
+    "layer": "4.5"
+  },
+  "domain": "enterprise-attack",
+  "description": "Sample ATT&CK Navigator layer for testing Purple Team Mapper. Represents a mid-maturity SOC with SIEM rules active.",
+  "filters": {
+    "platforms": ["windows", "linux", "macos"]
+  },
+  "sorting": 0,
+  "layout": {
+    "layout": "side",
+    "aggregateFunction": "average",
+    "showID": true,
+    "showName": true,
+    "showAggregateScores": true,
+    "countUnscored": false,
+    "expandedSubtechniques": "annotated"
+  },
+  "hideDisabled": false,
+  "techniques": [
+    {
+      "techniqueID": "T1059.001",
+      "tactic": "execution",
+      "color": "",
+      "comment": "PowerShell detection rule active — Splunk query on EventCode 4104",
+      "enabled": true,
+      "metadata": [],
+      "links": [],
+      "showSubtechniques": true,
+      "score": 75
+    },
+    {
+      "techniqueID": "T1059.003",
+      "tactic": "execution",
+      "color": "",
+      "comment": "CMD execution monitored via Sysmon Event ID 1",
+      "enabled": true,
+      "score": 60
+    },
+    {
+      "techniqueID": "T1003.001",
+      "tactic": "credential-access",
+      "color": "",
+      "comment": "Mimikatz detection — monitoring LSASS process access via Sysmon EID 10",
+      "enabled": true,
+      "score": 80
+    },
+    {
+      "techniqueID": "T1110.003",
+      "tactic": "credential-access",
+      "color": "",
+      "comment": "Password spraying detected via Azure AD sign-in logs",
+      "enabled": true,
+      "score": 70
+    },
+    {
+      "techniqueID": "T1566.001",
+      "tactic": "initial-access",
+      "color": "",
+      "comment": "Spearphishing detected via email gateway (Proofpoint) + sandbox detonation",
+      "enabled": true,
+      "score": 65
+    },
+    {
+      "techniqueID": "T1053.005",
+      "tactic": "persistence",
+      "color": "",
+      "comment": "Scheduled task creation monitored — Security Event 4698",
+      "enabled": true,
+      "score": 55
+    },
+    {
+      "techniqueID": "T1547.001",
+      "tactic": "persistence",
+      "color": "",
+      "comment": "Registry Run keys monitored via Sysmon registry events",
+      "enabled": true,
+      "score": 50
+    },
+    {
+      "techniqueID": "T1486",
+      "tactic": "impact",
+      "color": "",
+      "comment": "Ransomware detection — file entropy monitoring + mass rename alerts",
+      "enabled": true,
+      "score": 40
+    },
+    {
+      "techniqueID": "T1490",
+      "tactic": "impact",
+      "color": "",
+      "comment": "VSS shadow copy deletion monitored — vssadmin / wmic alerts",
+      "enabled": true,
+      "score": 70
+    },
+    {
+      "techniqueID": "T1071.001",
+      "tactic": "command-and-control",
+      "color": "",
+      "comment": "HTTP C2 detection via proxy logs + JA3 fingerprinting",
+      "enabled": true,
+      "score": 45
+    },
+    {
+      "techniqueID": "T1021.002",
+      "tactic": "lateral-movement",
+      "color": "",
+      "comment": "SMB lateral movement — Windows Event 4624 LogonType 3",
+      "enabled": true,
+      "score": 55
+    },
+    {
+      "techniqueID": "T1567.002",
+      "tactic": "exfiltration",
+      "color": "",
+      "comment": "OneDrive/cloud exfiltration monitored via CASB (Netskope)",
+      "enabled": true,
+      "score": 35
+    },
+    {
+      "techniqueID": "T1082",
+      "tactic": "discovery",
+      "color": "",
+      "comment": "System info discovery monitored for anomaly (baseline deviation)",
+      "enabled": true,
+      "score": 30
+    },
+    {
+      "techniqueID": "T1027",
+      "tactic": "defense-evasion",
+      "color": "",
+      "comment": "Obfuscation detection — PowerShell script block logging enabled",
+      "enabled": true,
+      "score": 60
+    },
+    {
+      "techniqueID": "T1078",
+      "tactic": "initial-access",
+      "color": "",
+      "comment": "Valid account abuse detected via UEBA behavioral analytics",
+      "enabled": true,
+      "score": 50
+    },
+    {
+      "techniqueID": "T1055",
+      "tactic": "defense-evasion",
+      "color": "",
+      "comment": "Process injection — Sysmon EID 8 (CreateRemoteThread) alert",
+      "enabled": true,
+      "score": 65
+    },
+    {
+      "techniqueID": "T1562.001",
+      "tactic": "defense-evasion",
+      "color": "",
+      "comment": "AV/EDR tampering detection — monitoring security tool process termination",
+      "enabled": true,
+      "score": 45
+    },
+    {
+      "techniqueID": "T1074.001",
+      "tactic": "collection",
+      "color": "",
+      "comment": "Local file staging — large temporary file creation alerts",
+      "enabled": true,
+      "score": 25
+    },
+    {
+      "techniqueID": "T1133",
+      "tactic": "initial-access",
+      "color": "",
+      "comment": "External Remote Services — VPN/RDP anomaly detection",
+      "enabled": true,
+      "score": 55
+    },
+    {
+      "techniqueID": "T1136.001",
+      "tactic": "persistence",
+      "color": "",
+      "comment": "Local account creation — Security Event 4720",
+      "enabled": true,
+      "score": 70
+    }
+  ],
+  "gradient": {
+    "colors": ["#ff6666", "#ffaa44", "#ffff66", "#66cc66"],
+    "minValue": 0,
+    "maxValue": 100
+  },
+  "legendItems": [
+    { "color": "#ff6666", "label": "Pas de couverture" },
+    { "color": "#ffaa44", "label": "Faible couverture" },
+    { "color": "#ffff66", "label": "Couverture partielle" },
+    { "color": "#66cc66", "label": "Bonne couverture" }
+  ],
+  "metadata": [],
+  "links": [],
+  "showTacticRowBackground": true,
+  "tacticRowBackground": "#1a1a2e",
+  "selectTechniquesAcrossTactics": true,
+  "selectSubtechniquesWithParent": false,
+  "selectVisibleTechniques": false
+}

@@ -1,0 +1,152 @@
+{
+  "M1049": {
+    "id": "M1049",
+    "name": "Antivirus/Antimalware",
+    "desc": "Utiliser un anti-malware à jour avec détection comportementale et heuristique."
+  },
+  "M1048": {
+    "id": "M1048",
+    "name": "Application Isolation and Sandboxing",
+    "desc": "Isoler les applications à haut risque (navigateurs, clients email) via sandboxing."
+  },
+  "M1047": {
+    "id": "M1047",
+    "name": "Audit",
+    "desc": "Auditer régulièrement les configurations, permissions et comptes."
+  },
+  "M1040": {
+    "id": "M1040",
+    "name": "Behavior Prevention on Endpoint",
+    "desc": "Utiliser des règles EDR comportementales pour bloquer les actions suspectes."
+  },
+  "M1038": {
+    "id": "M1038",
+    "name": "Execution Prevention",
+    "desc": "Application whitelisting — n'autoriser que les exécutables approuvés."
+  },
+  "M1037": {
+    "id": "M1037",
+    "name": "Filter Network Traffic",
+    "desc": "Filtrage réseau (NGFW, proxy, IPS) pour bloquer le trafic malveillant."
+  },
+  "M1036": {
+    "id": "M1036",
+    "name": "Account Use Policies",
+    "desc": "Politiques de verrouillage, rotation, et complexité des mots de passe."
+  },
+  "M1035": {
+    "id": "M1035",
+    "name": "Limit Access to Resource Over Network",
+    "desc": "Restreindre les accès réseau aux ressources sensibles (micro-segmentation)."
+  },
+  "M1034": {
+    "id": "M1034",
+    "name": "Limit Hardware Installation",
+    "desc": "Restreindre la connexion de périphériques USB/matériel non autorisé."
+  },
+  "M1032": {
+    "id": "M1032",
+    "name": "Multi-factor Authentication",
+    "desc": "Imposer MFA sur tous les accès critiques (VPN, RDP, cloud, admin)."
+  },
+  "M1031": {
+    "id": "M1031",
+    "name": "Network Intrusion Prevention",
+    "desc": "Déployer IDS/IPS pour détecter et bloquer les signatures réseau malveillantes."
+  },
+  "M1030": {
+    "id": "M1030",
+    "name": "Network Segmentation",
+    "desc": "Segmenter le réseau pour limiter la propagation latérale."
+  },
+  "M1028": {
+    "id": "M1028",
+    "name": "Operating System Configuration",
+    "desc": "Durcir la configuration OS (désactiver SMBv1, macros, PowerShell v2)."
+  },
+  "M1027": {
+    "id": "M1027",
+    "name": "Password Policies",
+    "desc": "Politiques de mots de passe robustes + détection de credentials compromis."
+  },
+  "M1026": {
+    "id": "M1026",
+    "name": "Privileged Account Management",
+    "desc": "Gestion des accès privilégiés (PAM), Just-In-Time access, tiering AD."
+  },
+  "M1024": {
+    "id": "M1024",
+    "name": "Restrict Registry Permissions",
+    "desc": "Restreindre les permissions d'écriture sur les clés de registre sensibles."
+  },
+  "M1022": {
+    "id": "M1022",
+    "name": "Restrict File and Directory Permissions",
+    "desc": "Contrôler les ACL sur les fichiers/dossiers critiques."
+  },
+  "M1021": {
+    "id": "M1021",
+    "name": "Restrict Web-Based Content",
+    "desc": "Filtrage web, bloquer les types de fichiers dangereux, désactiver les macros."
+  },
+  "M1020": {
+    "id": "M1020",
+    "name": "SSL/TLS Inspection",
+    "desc": "Inspecter le trafic TLS sortant via proxy MITM pour détecter le C2."
+  },
+  "M1019": {
+    "id": "M1019",
+    "name": "Threat Intelligence Program",
+    "desc": "Intégrer la threat intelligence (IOCs, TTPs) dans les outils de détection."
+  },
+  "M1018": {
+    "id": "M1018",
+    "name": "User Account Management",
+    "desc": "Principe du moindre privilège, revue régulière des comptes et permissions."
+  },
+  "M1017": {
+    "id": "M1017",
+    "name": "User Training",
+    "desc": "Former les utilisateurs à reconnaître le phishing et le social engineering."
+  },
+  "M1016": {
+    "id": "M1016",
+    "name": "Vulnerability Scanning",
+    "desc": "Scanner régulièrement les vulnérabilités et prioriser le patching."
+  },
+  "M1015": {
+    "id": "M1015",
+    "name": "Active Directory Configuration",
+    "desc": "Durcir AD : désactiver LLMNR/NBT-NS, activer LDAP signing, configurer GPO."
+  },
+  "M1054": {
+    "id": "M1054",
+    "name": "Software Configuration",
+    "desc": "Configurer les logiciels pour réduire la surface d'attaque (désactiver macros, etc.)."
+  },
+  "M1053": {
+    "id": "M1053",
+    "name": "Data Backup",
+    "desc": "Sauvegardes immuables et hors-ligne. Tester la restauration régulièrement."
+  },
+  "M1051": {
+    "id": "M1051",
+    "name": "Update Software",
+    "desc": "Appliquer les patchs de sécurité rapidement. Prioriser les CVE exploitées."
+  },
+  "M1050": {
+    "id": "M1050",
+    "name": "Exploit Protection",
+    "desc": "Activer les protections anti-exploit (DEP, ASLR, CFG) sur les endpoints."
+  },
+  "M1056": {
+    "id": "M1056",
+    "name": "Pre-compromise",
+    "desc": "Réduire la surface d'attaque externe : scanner les assets exposés, WAF."
+  },
+  "M1057": {
+    "id": "M1057",
+    "name": "Data Loss Prevention",
+    "desc": "DLP pour surveiller et bloquer les transferts de données sensibles."
+  }
+}
