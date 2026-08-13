@@ -4,6 +4,7 @@ import * as api from '../services/api';
 const AppContext = createContext(null);
 
 const STORAGE_KEY = 'purple-team-mapper-state';
+const THEME_KEY = 'ptm-theme';
 
 function loadFromStorage() {
   try {
@@ -13,26 +14,39 @@ function loadFromStorage() {
   } catch { return null; }
 }
 
+// Dark is the app's default theme — we never follow the OS color-scheme preference.
+function loadTheme() {
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === 'dark' || saved === 'light') return saved;
+  } catch { /* ignore */ }
+  return 'dark';
+}
+
+const VALID_PAGES = ['home', 'soc', 'attack', 'analysis'];
+
 const initialState = {
-  currentStep: -1,          // -1 = landing page
+  activePage: 'home',       // 'home' | 'soc' | 'attack' | 'analysis'
+  theme: 'dark',
   enabledControls: [],
   controlMaturity: {},
-  detectionRules: [],       // SOC rules from the backend (int ids)
+  detectionRules: [],
   selectedActors: [],
-  analysisResult: null,     // full engine result (from the backend)
-  analysisMeta: null,       // { id, name, created_at, posture_score, ... }
-  analysesHistory: [],      // past analyses summaries
+  analysisResult: null,
+  analysisMeta: null,
+  analysesHistory: [],
   lastAnalyzed: null,
-  loading: false,           // an API call is in flight
+  loading: false,
   apiError: null,
 };
 
 function buildInitialState() {
   const stored = loadFromStorage();
-  if (!stored) return { ...initialState, currentStep: -1 };
+  if (!stored) return { ...initialState, theme: loadTheme() };
   return {
     ...initialState,
-    currentStep: typeof stored.currentStep === 'number' ? stored.currentStep : -1,
+    theme: loadTheme(),
+    activePage: 'home', // always start on the overview, never restore the last page
     enabledControls: stored.enabledControls || [],
     controlMaturity: stored.controlMaturity || {},
     selectedActors: stored.selectedActors || [],
@@ -41,6 +55,8 @@ function buildInitialState() {
 
 function reducer(state, action) {
   switch (action.type) {
+    case 'SET_PAGE':
+      return { ...state, activePage: VALID_PAGES.includes(action.page) ? action.page : 'home' };
     case 'TOGGLE_CONTROL': {
       const { controlId } = action;
       const isEnabled = state.enabledControls.includes(controlId);
@@ -64,7 +80,7 @@ function reducer(state, action) {
       return { ...state, controlMaturity: { ...state.controlMaturity, [controlId]: level } };
     }
     case 'SET_RULES':
-      return { ...state, detectionRules: action.rules, apiError: null };
+      return { ...state, detectionRules: action.rules, apiError: null, loading: false };
     case 'REMOVE_RULE':
       return { ...state, detectionRules: state.detectionRules.filter(r => r.id !== action.ruleId) };
     case 'TOGGLE_ACTOR': {
@@ -90,17 +106,16 @@ function reducer(state, action) {
       return { ...state, loading: action.loading, apiError: action.loading ? null : state.apiError };
     case 'SET_API_ERROR':
       return { ...state, loading: false, apiError: action.error };
-    case 'SET_STEP':
-      return { ...state, currentStep: action.step };
+    case 'SET_THEME':
+      return { ...state, theme: action.theme === 'light' ? 'light' : 'dark' };
     case 'RESET':
       localStorage.removeItem(STORAGE_KEY);
       return {
         ...initialState,
-        currentStep: -1,
-        detectionRules: state.detectionRules,   // SOC rules stay in the backend
+        theme: state.theme,
+        activePage: 'home',
+        detectionRules: state.detectionRules,
         analysesHistory: state.analysesHistory,
-        analysisResult: null,
-        analysisMeta: null,
       };
     default:
       return state;
@@ -110,21 +125,25 @@ function reducer(state, action) {
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, undefined, buildInitialState);
 
-  // Persist session inputs (rules live server-side)
+  // Persist session inputs (the active page is intentionally NOT persisted)
   useEffect(() => {
     const toSave = {
-      currentStep: state.currentStep,
       enabledControls: state.enabledControls,
       controlMaturity: state.controlMaturity,
       selectedActors: state.selectedActors,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-  }, [state.currentStep, state.enabledControls, state.controlMaturity, state.selectedActors]);
+  }, [state.enabledControls, state.controlMaturity, state.selectedActors]);
 
-  // Bootstrap: load SOC rules + analysis history + restore the latest analysis
+  // Apply + persist theme
+  useEffect(() => {
+    document.documentElement.dataset.theme = state.theme;
+    try { localStorage.setItem(THEME_KEY, state.theme); } catch { /* ignore */ }
+  }, [state.theme]);
+
+  // Bootstrap: load rules + history + latest analysis
   useEffect(() => {
     let cancelled = false;
-
     async function bootstrap() {
       try {
         const { rules } = await api.getRules();
@@ -132,7 +151,6 @@ export function AppProvider({ children }) {
       } catch (err) {
         if (!cancelled) dispatch({ type: 'SET_API_ERROR', error: err.message });
       }
-
       try {
         const { analyses } = await api.listAnalyses();
         if (cancelled) return;
@@ -140,19 +158,16 @@ export function AppProvider({ children }) {
         const latest = analyses[0];
         if (latest) {
           const full = await api.getAnalysis(latest.id);
-          if (!cancelled) {
-            dispatch({ type: 'SET_ANALYSIS', result: full.result, meta: full.analysis });
-          }
+          if (!cancelled) dispatch({ type: 'SET_ANALYSIS', result: full.result, meta: full.analysis });
         }
       } catch (err) {
         if (!cancelled) dispatch({ type: 'SET_API_ERROR', error: err.message });
       }
     }
-
     bootstrap();
     return () => { cancelled = true; };
   }, []);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   const refreshRules = useCallback(async () => {
     try {
       const { rules } = await api.getRules();
@@ -224,7 +239,7 @@ export function AppProvider({ children }) {
     dispatch({ type: 'SET_LOADING', loading: true });
     try {
       const body = await api.runAnalysis({
-        name: `Analyse du ${new Date().toLocaleDateString('fr-FR')} ${new Date().toLocaleTimeString('fr-FR')}`,
+        name: `Analysis ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
         controls: state.enabledControls,
         maturity: state.controlMaturity,
         actorIds: state.selectedActors,
@@ -238,16 +253,19 @@ export function AppProvider({ children }) {
     }
   }, [state.enabledControls, state.controlMaturity, state.selectedActors, refreshHistory]);
 
+  const setPage = useCallback((page) => dispatch({ type: 'SET_PAGE', page }), []);
   const toggleControl = useCallback((controlId) => dispatch({ type: 'TOGGLE_CONTROL', controlId }), []);
   const toggleCategoryControls = useCallback((controlIds, enable) => dispatch({ type: 'TOGGLE_CATEGORY_CONTROLS', controlIds, enable }), []);
   const setMaturity = useCallback((controlId, level) => dispatch({ type: 'SET_MATURITY', controlId, level }), []);
   const toggleActor = useCallback((actorId) => dispatch({ type: 'TOGGLE_ACTOR', actorId }), []);
-  const setStep = useCallback((step) => dispatch({ type: 'SET_STEP', step }), []);
+  const toggleTheme = useCallback(() => dispatch({ type: 'SET_THEME', theme: state.theme === 'dark' ? 'light' : 'dark' }), [state.theme]);
   const reset = useCallback(() => dispatch({ type: 'RESET' }), []);
 
   return (
     <AppContext.Provider value={{
       state,
+      setPage,
+      toggleTheme,
       toggleControl,
       toggleCategoryControls,
       setMaturity,
@@ -258,7 +276,6 @@ export function AppProvider({ children }) {
       runAnalysis,
       loadAnalysis,
       refreshHistory,
-      setStep,
       reset,
     }}>
       {children}

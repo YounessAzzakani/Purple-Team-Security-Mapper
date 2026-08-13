@@ -9,7 +9,6 @@
 export function parseSigmaRule(yamlContent) {
   try {
     // Simple regex-based parser (no heavy yaml lib needed for tag extraction)
-    const lines = yamlContent.split('\n');
     const rule = {};
 
     // Extract title

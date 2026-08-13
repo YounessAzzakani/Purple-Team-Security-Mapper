@@ -27,6 +27,7 @@ dist-ssr
 demo-artifacts/
 backend/data/*.db
 backend/data/*.db-journal
+.freebuff/
 
 # Python
 __pycache__/

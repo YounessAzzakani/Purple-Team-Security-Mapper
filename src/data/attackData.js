@@ -187,8 +187,10 @@ export const TECHNIQUES = [
 ];
 
 // Build lookup maps
+// A technique may appear several times (once per tactic it maps to, e.g. T1078),
+// so the by-ID maps keep the FIRST occurrence — the canonical name/description.
 export const TECHNIQUE_MAP = {};
-TECHNIQUES.forEach(t => { TECHNIQUE_MAP[t.id] = t; });
+TECHNIQUES.forEach(t => { if (!TECHNIQUE_MAP[t.id]) TECHNIQUE_MAP[t.id] = t; });
 
 export const TACTIC_MAP = {};
 TACTICS.forEach(t => { TACTIC_MAP[t.id] = t; });
@@ -204,6 +206,8 @@ export const SUBTECHNIQUES_BY_PARENT = {};
 TECHNIQUES.forEach(t => {
   if (t.parent) {
     if (!SUBTECHNIQUES_BY_PARENT[t.parent]) SUBTECHNIQUES_BY_PARENT[t.parent] = [];
-    SUBTECHNIQUES_BY_PARENT[t.parent].push(t);
+    if (!SUBTECHNIQUES_BY_PARENT[t.parent].some(existing => existing.id === t.id)) {
+      SUBTECHNIQUES_BY_PARENT[t.parent].push(t);
+    }
   }
 });

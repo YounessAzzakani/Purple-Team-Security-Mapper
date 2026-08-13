@@ -1,14 +1,28 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🟣</text></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Purple Team Mapper — Analysez vos gaps de sécurité en mappant vos contrôles contre MITRE ATT&CK Enterprise. Identifiez les techniques non couvertes par votre SOC." />
+    <script>
+      (function () {
+        // Dark is always the default — only an explicit user choice overrides it.
+        var theme = 'dark';
+        try {
+          var saved = localStorage.getItem('ptm-theme');
+          if (saved === 'dark' || saved === 'light') {
+            theme = saved;
+          }
+        } catch (e) { /* ignore */ }
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
+    <meta name="theme-color" content="#0f1117" />
+    <meta name="description" content="Purple Team Mapper — Map your security controls and detection rules against MITRE ATT&CK Enterprise to identify coverage gaps and measure your SOC posture." />
     <meta name="keywords" content="purple team, MITRE ATT&CK, gap analysis, SOC, security controls, Sigma rules, threat detection" />
     <meta name="author" content="Purple Team Mapper" />
     <meta property="og:title" content="Purple Team Mapper" />
-    <meta property="og:description" content="Mappez vos contrôles de sécurité contre MITRE ATT&CK et identifiez vos gaps de détection." />
+    <meta property="og:description" content="Map your security controls against MITRE ATT&CK and identify detection gaps." />
     <title>Purple Team Mapper — ATT&CK Gap Analysis</title>
   </head>
   <body>

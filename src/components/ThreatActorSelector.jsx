@@ -1,15 +1,12 @@
-import { useState } from 'react';
 import { THREAT_ACTORS } from '../data/threatActors';
 
 export default function ThreatActorSelector({ selectedActors, onToggle }) {
-  const [expanded, setExpanded] = useState(null);
-
   return (
     <div>
       <div style={{ marginBottom: 'var(--space-4)' }}>
         <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-          Sélectionnez les groupes d'attaquants les plus susceptibles de vous cibler.
-          L'analyse mesurera votre posture défensive contre leurs TTPs connus.
+          Select the attacker groups most likely to target you.
+          The analysis will measure your defensive posture against their known TTPs.
         </p>
       </div>
 
@@ -22,7 +19,7 @@ export default function ThreatActorSelector({ selectedActors, onToggle }) {
               className={`animate-slide-up stagger-${Math.min(i + 1, 8)}`}
               style={{
                 background: isSelected
-                  ? 'linear-gradient(145deg, rgba(139,92,246,0.12), rgba(109,40,217,0.06))'
+                  ? 'var(--gradient-purple-subtle)'
                   : 'var(--gradient-card)',
                 border: `1px solid ${isSelected ? 'var(--border-active)' : 'var(--border-subtle)'}`,
                 borderRadius: 'var(--radius-lg)',
@@ -42,7 +39,7 @@ export default function ThreatActorSelector({ selectedActors, onToggle }) {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
                     <span className="badge" style={{
-                      background: 'rgba(148,163,184,0.1)', color: 'var(--text-tertiary)',
+                      background: 'var(--neutral-soft)', color: 'var(--text-tertiary)',
                       fontSize: 10, padding: '2px 8px',
                     }}>
                       {actor.origin}
@@ -73,7 +70,7 @@ export default function ThreatActorSelector({ selectedActors, onToggle }) {
                   {actor.sector.slice(0, 2).map(s => (
                     <span key={s} style={{
                       fontSize: 9, padding: '2px 6px', borderRadius: 'var(--radius-full)',
-                      background: 'rgba(96,165,250,0.1)', color: 'var(--color-info)', fontWeight: 600,
+                      background: 'var(--color-info-dim)', color: 'var(--color-info)', fontWeight: 600,
                     }}>
                       {s}
                     </span>

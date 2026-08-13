@@ -12,7 +12,7 @@ function authHeaders(extra = {}) {
 async function apiFetch(path, options = {}) {
   const resp = await fetch(`${API_URL}${path}`, { ...options, headers: authHeaders(options.headers) });
   if (!resp.ok) {
-    let detail = `Erreur serveur (${resp.status})`;
+    let detail = `Server error (${resp.status})`;
     try {
       const body = await resp.json();
       if (body?.detail) detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail);
@@ -23,7 +23,7 @@ async function apiFetch(path, options = {}) {
   return contentType.includes('application/json') ? resp.json() : resp;
 }
 
-// ── Règles SOC ──
+// ── SOC Rules ──
 export const getRules = () => apiFetch('/api/rules');
 export const uploadRuleFile = (file) => {
   const form = new FormData();
@@ -37,7 +37,7 @@ export const createManualRule = (payload) => apiFetch('/api/rules/manual', {
 });
 export const deleteRule = (id) => apiFetch(`/api/rules/${id}`, { method: 'DELETE' });
 
-// ── Analyses ──
+// ── Analysis API ──
 export const runAnalysis = (payload) => apiFetch('/api/analyses', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
@@ -55,7 +55,7 @@ export const runSimulation = (analysisId, actorIds, opts = {}) => apiFetch(`/api
 // ── Exports (blob download) ──
 export async function downloadBlob(urlPath, filename) {
   const resp = await fetch(`${API_URL}${urlPath}`, { headers: authHeaders() });
-  if (!resp.ok) throw new Error(`Téléchargement échoué (${resp.status})`);
+  if (!resp.ok) throw new Error(`Download failed (${resp.status})`);
   const blob = await resp.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

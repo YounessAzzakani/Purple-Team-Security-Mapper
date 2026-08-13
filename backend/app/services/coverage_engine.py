@@ -195,7 +195,16 @@ def run_gap_analysis(enabled_controls: list, control_maturity: dict, detection_r
             "coveragePercent": _jround((covered / len(roots)) * 100) if roots else 0,
         }
 
-    root_techniques = [t for t in all_techniques if not t.get("parent")]
+    # Dedupe root techniques by id: MITRE maps some techniques to several
+    # tactics (e.g. T1078 in Initial Access AND Privilege Escalation), so the
+    # same id would otherwise be counted and rendered twice.
+    seen_root_ids = set()
+    root_techniques = []
+    for t in all_techniques:
+        if not t.get("parent") and t["id"] not in seen_root_ids:
+            seen_root_ids.add(t["id"])
+            root_techniques.append(t)
+
     gaps = []
     for t in root_techniques:
         ts = technique_scores[t["id"]]

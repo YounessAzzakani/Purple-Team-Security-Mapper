@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { TACTICS, TECHNIQUES_BY_TACTIC, SUBTECHNIQUES_BY_PARENT } from '../data/attackData';
-import { getCoverageLevel, getCoverageLevelColor } from '../services/coverageEngine';
+import { getCoverageLevel } from '../services/coverageEngine';
 
 const TACTIC_ABBREV = {
   'TA0001': 'Init\nAccess',
@@ -20,23 +20,7 @@ const TACTIC_ABBREV = {
 export default function AttackMatrix({ techniqueScores, onTechniqueClick }) {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [hoveredId, setHoveredId] = useState(null);
   const [tooltip, setTooltip] = useState(null);
-
-  const filterColors = {
-    all: null,
-    none: 'coverage-none',
-    low: 'coverage-low',
-    medium: 'coverage-medium',
-    high: 'coverage-high',
-  };
-
-  function getCellClass(score) {
-    const level = getCoverageLevel(score);
-    const base = `matrix-cell coverage-${level}`;
-    if (filter !== 'all' && filter !== level) return base + ' opacity-50';
-    return base;
-  }
 
   // Count per level for legend
   const counts = useMemo(() => {
@@ -62,15 +46,15 @@ export default function AttackMatrix({ techniqueScores, onTechniqueClick }) {
       {/* Legend + Filters */}
       <div className="filter-bar" style={{ marginBottom: 'var(--space-4)' }}>
         <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-secondary)', marginRight: 'var(--space-2)' }}>
-          Filtrer:
+          Filter:
         </span>
         <div className="filter-group">
           {[
-            { key: 'all', label: 'Tout', count: null },
+            { key: 'all', label: 'All', count: null },
             { key: 'none', label: '🔴 Gaps', count: counts.none },
-            { key: 'low', label: '🟠 Faible', count: counts.low },
-            { key: 'medium', label: '🟡 Moyen', count: counts.medium },
-            { key: 'high', label: '🟢 Couvert', count: counts.high },
+            { key: 'low', label: '🟠 Low', count: counts.low },
+            { key: 'medium', label: '🟡 Medium', count: counts.medium },
+            { key: 'high', label: '🟢 Covered', count: counts.high },
           ].map(f => (
             <button
               key={f.key}
@@ -84,12 +68,12 @@ export default function AttackMatrix({ techniqueScores, onTechniqueClick }) {
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <input
             className="form-input"
-            placeholder="🔎 Rechercher un ID ou un nom…"
+            placeholder="🔎 Search an ID or name…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ width: 240, padding: '6px 10px', fontSize: 'var(--text-xs)', background: 'var(--bg-input)' }}
           />
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>Cliquez sur une technique pour voir les détails</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>Click a technique for details</span>
         </div>
       </div>
 
@@ -130,11 +114,16 @@ export default function AttackMatrix({ techniqueScores, onTechniqueClick }) {
               const score = ts?.score ?? 0;
               const level = getCoverageLevel(score);
               const shouldDim = (filter !== 'all' && filter !== level) || !matchesSearch(technique);
-              const subTechs = SUBTECHNIQUES_BY_PARENT[technique.id] || [];
+              // Same technique can legitimately map to several tactics (e.g. T1078),
+              // so the React key must be unique per tactic column.
+              const cellKey = `${technique.id}::${tactic.id}`;
+              // Dedupe sub-techniques: the dataset can list one ID under several tactics.
+              const subTechs = (SUBTECHNIQUES_BY_PARENT[technique.id] || [])
+                .filter((st, i, arr) => arr.findIndex(x => x.id === st.id) === i);
 
               return (
                 <div
-                  key={technique.id}
+                  key={cellKey}
                   className={`matrix-cell coverage-${level}`}
                   style={{
                     opacity: shouldDim ? 0.25 : 1,
@@ -147,11 +136,10 @@ export default function AttackMatrix({ techniqueScores, onTechniqueClick }) {
                   }}
                   onClick={() => onTechniqueClick?.(technique, ts)}
                   onMouseEnter={(e) => {
-                    setHoveredId(technique.id);
                     const rect = e.currentTarget.getBoundingClientRect();
                     setTooltip({ technique, ts, score, x: rect.left, y: rect.bottom + 8 });
                   }}
-                  onMouseLeave={() => { setHoveredId(null); setTooltip(null); }}
+                  onMouseLeave={() => { setTooltip(null); }}
                 >
                   <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'inherit', opacity: 0.7, lineHeight: 1 }}>
                     {technique.id}
@@ -182,7 +170,7 @@ export default function AttackMatrix({ techniqueScores, onTechniqueClick }) {
 function MatrixTooltip({ tooltip }) {
   const { technique, ts, score, x, y } = tooltip;
   const level = getCoverageLevel(score);
-  const levelLabels = { none: 'Aucune couverture', low: 'Faible', medium: 'Moyen', high: 'Bon' };
+  const levelLabels = { none: 'No coverage', low: 'Low', medium: 'Medium', high: 'Good' };
   const levelColors = { none: 'var(--color-danger)', low: 'var(--color-orange)', medium: 'var(--color-warning)', high: 'var(--color-success)' };
 
   return (
@@ -220,13 +208,13 @@ function MatrixTooltip({ tooltip }) {
       {ts && (
         <div style={{ marginTop: 8, fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
           {ts.coveringControls?.length > 0 && (
-            <div>🛡️ {ts.coveringControls.length} contrôle{ts.coveringControls.length > 1 ? 's' : ''}</div>
+            <div>🛡️ {ts.coveringControls.length} control{ts.coveringControls.length > 1 ? 's' : ''}</div>
           )}
           {ts.coveringRules?.length > 0 && (
-            <div>🔍 {ts.coveringRules.length} règle{ts.coveringRules.length > 1 ? 's' : ''}</div>
+            <div>🔍 {ts.coveringRules.length} rule{ts.coveringRules.length > 1 ? 's' : ''}</div>
           )}
           {ts.coveringControls?.length === 0 && ts.coveringRules?.length === 0 && (
-            <div style={{ color: 'var(--color-danger)' }}>⚠️ Aucune couverture — GAP critique</div>
+            <div style={{ color: 'var(--color-danger)' }}>⚠️ No coverage — CRITICAL GAP</div>
           )}
         </div>
       )}

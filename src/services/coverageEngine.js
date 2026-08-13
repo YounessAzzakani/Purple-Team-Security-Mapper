@@ -8,9 +8,9 @@
 // 4. Per-technique recommendations from mitigationsData.js (not generic per-tactic)
 // 5. Specific data sources and Sigma guidance per technique
 
-import { TECHNIQUES, TACTICS, TECHNIQUE_MAP, TACTIC_MAP } from '../data/attackData';
+import { TECHNIQUES, TACTICS, TECHNIQUE_MAP } from '../data/attackData';
 import { ALL_CONTROLS } from '../data/controlMappings';
-import { THREAT_ACTORS, ACTOR_MAP } from '../data/threatActors';
+import { ACTOR_MAP } from '../data/threatActors';
 import { getTechniqueIntel, MITIGATIONS } from '../data/mitigationsData';
 
 const MATURITY_MULT = { basic: 0.5, intermediate: 0.75, advanced: 1.0 };
@@ -44,7 +44,6 @@ function computeScore(techniqueId, enabledControls, controlMaturity, detectionRu
   let rulesScore = 0;
   coveringRules.forEach(rule => {
     const isExactMatch = rule.techniques.includes(techniqueId);
-    const isParentMatch = !isExactMatch; // inherited from parent/child
     const levelMult = { critical: 1.0, high: 0.85, medium: 0.7, low: 0.5 }[rule.level] || 0.7;
     const matchMult = isExactMatch ? 1.0 : 0.6;
     rulesScore += 18 * levelMult * matchMult; // Each rule contributes up to 18 pts
@@ -105,10 +104,10 @@ export function getCoverageLevel(score) {
 }
 
 export function getCoverageLevelLabel(score) {
-  if (score === 0)  return 'Aucune couverture';
-  if (score <= 30)  return 'Faible couverture';
-  if (score <= 60)  return 'Couverture partielle';
-  return 'Bonne couverture';
+  if (score === 0)  return 'No coverage';
+  if (score <= 30)  return 'Low coverage';
+  if (score <= 60)  return 'Partial coverage';
+  return 'Good coverage';
 }
 
 export function getCoverageLevelColor(score) {
@@ -193,8 +192,16 @@ export function runGapAnalysis(enabledControls, controlMaturity, detectionRules,
     };
   });
 
-  // All gaps (score < 61), sorted by priority
-  const rootTechniques = allTechniques.filter(t => !t.parent);
+  // Root techniques — dedupe by id: MITRE maps some techniques to several
+  // tactics (e.g. T1078 in Initial Access AND Privilege Escalation), so the
+  // same id would otherwise be counted and rendered twice.
+  const seenRootIds = new Set();
+  const rootTechniques = allTechniques.filter(t => {
+    if (t.parent) return false;
+    if (seenRootIds.has(t.id)) return false;
+    seenRootIds.add(t.id);
+    return true;
+  });
   const gaps = rootTechniques
     .map(t => {
       const ts = techniqueScores[t.id];
@@ -294,9 +301,9 @@ export function getRecommendations(technique, techniqueScore) {
     recs.push({
       type: 'detection',
       priority: 'critical',
-      title: `Créer une règle de détection pour ${technique.id} — ${technique.name}`,
+      title: `Create a detection rule for ${technique.id} — ${technique.name}`,
       description: intel.sigmaGuidance,
-      effort: intel.detectionPriority === 'critical' ? 'Priorité haute' : 'Priorité moyenne',
+      effort: intel.detectionPriority === 'critical' ? 'High priority' : 'Medium priority',
       dataSources: intel.dataSources,
     });
   }
@@ -307,14 +314,14 @@ export function getRecommendations(technique, techniqueScore) {
       .map(mid => MITIGATIONS[mid])
       .filter(Boolean)
       .filter(m => ['M1038', 'M1032', 'M1030', 'M1050', 'M1051', 'M1049', 'M1021', 'M1022', 'M1026', 'M1027', 'M1028', 'M1034', 'M1035', 'M1037', 'M1057'].includes(m.id));
-    
+
     if (relevantMitigations.length > 0) {
       recs.push({
         type: 'control',
         priority: 'high',
-        title: `Implémenter un contrôle préventif pour ${technique.name}`,
+        title: `Implement a preventive control for ${technique.name}`,
         description: relevantMitigations.map(m => `• ${m.name} — ${m.desc}`).join('\n'),
-        effort: relevantMitigations.length > 2 ? 'Élevé' : 'Moyen',
+        effort: relevantMitigations.length > 2 ? 'High' : 'Medium',
         mitigations: relevantMitigations,
       });
     }
@@ -325,9 +332,9 @@ export function getRecommendations(technique, techniqueScore) {
     recs.push({
       type: 'detection',
       priority: 'medium',
-      title: `Ajouter une détection spécifique pour ${technique.name}`,
-      description: `Des contrôles sont en place mais aucune règle de détection ne cible cette technique. En cas de contournement du contrôle, il n'y a aucune alerte. Sources recommandées : ${intel.dataSources.join(', ')}.`,
-      effort: 'Moyen',
+      title: `Add specific detection for ${technique.name}`,
+      description: `Controls are in place but no detection rule targets this technique. If the control is bypassed, there is no alert. Recommended sources: ${intel.dataSources.join(', ')}.`,
+      effort: 'Medium',
       dataSources: intel.dataSources,
     });
   }
@@ -343,9 +350,9 @@ export function getRecommendations(technique, techniqueScore) {
       recs.push({
         type: 'control',
         priority: 'medium',
-        title: `Compléter avec un contrôle préventif pour ${technique.name}`,
-        description: `La détection est en place, mais aucun contrôle ne bloque proactivement cette technique. Considérer : ${preventiveMitigations.map(m => m.name).join(', ')}.`,
-        effort: 'Moyen',
+        title: `Complete with a preventive control for ${technique.name}`,
+        description: `Detection is in place, but no control proactively blocks this technique. Consider: ${preventiveMitigations.map(m => m.name).join(', ')}.`,
+        effort: 'Medium',
         mitigations: preventiveMitigations,
       });
     }
@@ -359,9 +366,9 @@ export function getRecommendations(technique, techniqueScore) {
     recs.push({
       type: 'improvement',
       priority: 'low',
-      title: `Augmenter la maturité des contrôles pour ${technique.name}`,
-      description: `${lowMaturityControls.length} contrôle(s) en niveau "Basique". Passer au niveau Intermédiaire ou Avancé augmenterait significativement le score.`,
-      effort: 'Faible',
+      title: `Increase control maturity for ${technique.name}`,
+      description: `${lowMaturityControls.length} control(s) at "Basic" level. Moving to Intermediate or Advanced would significantly increase the score.`,
+      effort: 'Low',
     });
   }
 
@@ -371,8 +378,8 @@ export function getRecommendations(technique, techniqueScore) {
     recs.push({
       type: 'improvement',
       priority: 'low',
-      title: `Renforcer la couverture de ${technique.name}`,
-      description: `Mitigations MITRE applicables : ${allMits.map(m => m.name).join(', ')}.`,
+      title: `Strengthen the coverage of ${technique.name}`,
+      description: `Applicable MITRE mitigations: ${allMits.map(m => m.name).join(', ')}.`,
       effort: 'Variable',
       mitigations: allMits,
     });
