@@ -4,6 +4,7 @@ import PostureRing from '../common/PostureRing';
 import {
   RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer,
   PieChart, Pie, Cell, Tooltip, Legend,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
 
 function postureColorOf(score) {
@@ -15,12 +16,24 @@ function postureColorOf(score) {
 }
 
 export default function HomePage({ onNavigate }) {
-  const { state } = useApp();
-  const { analysisResult, enabledControls, detectionRules, selectedActors } = state;
+  const { state, runAnalysis: triggerAnalysis } = useApp();
+  const { analysisResult, enabledControls, detectionRules, selectedActors, analysesHistory, loading } = state;
 
   const ownRules = detectionRules.filter(r => r.source !== 'threat-actor');
   const postureScore = analysisResult?.postureScore ?? null;
   const postureColor = postureColorOf(postureScore);
+
+  async function handleQuickAnalyze() {
+    try { await triggerAnalysis(); onNavigate('analysis'); } catch { /* errors shown in UI */ }
+  }
+
+  // Posture trend across historical analyses (newest first)
+  const trendData = analysesHistory.length >= 2
+    ? [...analysesHistory].reverse().map(a => ({
+        label: new Date(a.created_at).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' }),
+        posture: a.posture_score ?? 0,
+      }))
+    : [];
 
   const radarData = TACTICS.map(t => ({
     tactic: t.name.split(' ').slice(0, 2).join(' '),
@@ -61,6 +74,14 @@ export default function HomePage({ onNavigate }) {
           {analysisResult && (
             <button className="btn btn-secondary btn-lg" onClick={() => onNavigate('analysis')}>📊 View results</button>
           )}
+          <button
+            className="btn btn-secondary btn-lg"
+            style={{ borderColor: 'var(--violet-border)', color: 'var(--purple-300)' }}
+            onClick={handleQuickAnalyze}
+            disabled={loading}
+          >
+            {loading ? '⏳ Analyzing…' : '⚡ Run analysis'}
+          </button>
         </div>
       </div>
 
@@ -196,6 +217,67 @@ export default function HomePage({ onNavigate }) {
               </PieChart>
             </ResponsiveContainer>
           </div>
+        </div>
+      )}
+
+      {/* ── Recent gaps spotlight + posture trend (if analysis) ── */}
+      {analysisResult && (
+        <div style={{ display: 'grid', gridTemplateColumns: trendData.length > 0 ? '1.4fr 1fr' : '1fr', gap: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
+          <div className="card animate-slide-up">
+            <div className="card-header">
+              <div style={{ flex: 1 }}>
+                <div className="card-title">🚨 Critical gaps spotlight</div>
+                <div className="card-subtitle">Top techniques to fix first (by prevalence-weighted priority)</div>
+              </div>
+              <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('analysis')}>View all →</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {analysisResult.gaps.slice(0, 5).map(g => {
+                const level = g.score === 0 ? 'critical' : g.score <= 30 ? 'high' : 'medium';
+                const levelLabel = g.score === 0 ? 'No coverage' : g.score <= 30 ? 'Weak' : 'Partial';
+                return (
+                  <div key={g.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
+                    padding: 'var(--space-2) var(--space-1)', borderBottom: '1px solid var(--border-subtle)',
+                  }}>
+                    <span className={`sev-pill ${level}`}>{levelLabel}</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--purple-400)', fontWeight: 700, minWidth: 60 }}>{g.id}</span>
+                    <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', flex: 1, minWidth: 0 }} className="truncate">{g.name}</span>
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', flexShrink: 0 }}>score {g.score}/100</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {trendData.length > 0 && (
+            <div className="card animate-slide-up stagger-1">
+              <div className="card-header">
+                <div>
+                  <div className="card-title">📈 Posture trend</div>
+                  <div className="card-subtitle">Posture score across your {analysesHistory.length} analyses</div>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={trendData} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
+                  <defs>
+                    <linearGradient id="postureTrendFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--purple-500)" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="var(--purple-500)" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="var(--border-subtle)" strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fill: 'var(--text-tertiary)', fontSize: 10 }} tickLine={false} axisLine={false} />
+                  <YAxis domain={[0, 100]} tick={{ fill: 'var(--text-tertiary)', fontSize: 10 }} tickLine={false} axisLine={false} />
+                  <Tooltip
+                    contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)' }}
+                    formatter={(value) => [`${value}/100`, 'Posture']}
+                  />
+                  <Area type="monotone" dataKey="posture" stroke="var(--purple-500)" strokeWidth={2} fill="url(#postureTrendFill)" dot={{ r: 3, fill: 'var(--purple-500)' }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       )}
 

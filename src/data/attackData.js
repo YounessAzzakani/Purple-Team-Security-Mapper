@@ -192,6 +192,17 @@ export const TECHNIQUES = [
 export const TECHNIQUE_MAP = {};
 TECHNIQUES.forEach(t => { if (!TECHNIQUE_MAP[t.id]) TECHNIQUE_MAP[t.id] = t; });
 
+// Dedupe a list of techniques by id — MITRE maps some techniques to several
+// tactics (T1078 in Initial Access AND Privilege Escalation), keeping the first.
+export function deduplicatedById(items) {
+  const seen = new Set();
+  return items.filter(t => {
+    if (seen.has(t.id)) return false;
+    seen.add(t.id);
+    return true;
+  });
+}
+
 export const TACTIC_MAP = {};
 TACTICS.forEach(t => { TACTIC_MAP[t.id] = t; });
 

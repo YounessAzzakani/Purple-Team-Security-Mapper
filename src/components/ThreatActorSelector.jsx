@@ -1,6 +1,13 @@
 import { THREAT_ACTORS } from '../data/threatActors';
 
-export default function ThreatActorSelector({ selectedActors, onToggle }) {
+function coverageColor(pct) {
+  if (pct >= 61) return 'var(--color-success)';
+  if (pct >= 31) return 'var(--color-warning)';
+  if (pct > 0) return 'var(--color-orange)';
+  return 'var(--color-danger)';
+}
+
+export default function ThreatActorSelector({ selectedActors, onToggle, actorCoverage }) {
   return (
     <div>
       <div style={{ marginBottom: 'var(--space-4)' }}>
@@ -83,6 +90,25 @@ export default function ThreatActorSelector({ selectedActors, onToggle }) {
                   {actor.techniques.length} TTPs
                 </span>
               </div>
+
+              {/* Live coverage against this actor */}
+              {actorCoverage && (() => {
+                const c = actorCoverage.find(x => x.actorId === actor.id);
+                if (!c || c.total === 0) return null;
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}
+                    title={c.covered === 0
+                      ? 'No TTP of this group is covered'
+                      : `You cover ${c.covered}/${c.total} of their TTPs (score > 30)`}>
+                    <div className="coverage-bar">
+                      <div className="coverage-bar-fill" style={{ width: `${c.percent}%`, background: coverageColor(c.percent) }} />
+                    </div>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: coverageColor(c.percent), minWidth: 42, textAlign: 'right' }}>
+                      {c.percent}%
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
           );
         })}

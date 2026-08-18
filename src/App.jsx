@@ -15,6 +15,7 @@ function AppShell() {
   const navigate = (page) => {
     setPage(page);
     setSidebarOpen(false);
+    window.scrollTo(0, 0); // reset scroll on every page change
   };
 
   // Track scroll to reveal the back-to-top button on long pages

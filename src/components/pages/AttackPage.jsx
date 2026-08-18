@@ -2,15 +2,19 @@ import { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import ThreatActorSelector from '../ThreatActorSelector';
 import ActorGraph from '../attack/ActorGraph';
+import AttackScenarioFlow from '../attack/AttackScenarioFlow';
 import AttackMatrix from '../AttackMatrix';
 import TechniqueDetail from '../TechniqueDetail';
 import { runGapAnalysis } from '../../services/coverageEngine';
+import { ATTACK_SCENARIOS } from '../../data/attackScenarios';
+import { THREAT_ACTORS } from '../../data/threatActors';
 
 /* ============================================================
  * ATTACK PAGE — one scrollable view:
  *   1. Adversary Groups (select APT profiles for the analysis)
- *   2. TTP Graph        (interactive force-directed graph)
- *   3. Coverage Matrix  (full technique heatmap)
+ *   2. Attack Scenarios (pre-built kill-chain flows)
+ *   3. TTP Graph        (interactive force-directed graph)
+ *   4. Coverage Matrix  (full technique heatmap)
  * Coverage is shown LIVE from the current SOC configuration.
  * ============================================================ */
 
@@ -28,6 +32,21 @@ export default function AttackPage() {
 
   const techniqueScores = preview.techniqueScores;
 
+  // Live coverage % for EVERY actor (not only the selected ones)
+  const actorCoverage = useMemo(
+    () => THREAT_ACTORS.map(actor => {
+      const techs = actor.techniques.map(tid => techniqueScores[tid]).filter(Boolean);
+      const covered = techs.filter(ts => ts.score > 30).length;
+      return {
+        actorId: actor.id,
+        total: techs.length,
+        covered,
+        percent: techs.length ? Math.round((covered / techs.length) * 100) : 0,
+      };
+    }),
+    [techniqueScores],
+  );
+
   const openTechnique = (technique, ts) => {
     setSelectedTechnique(technique);
     setSelectedScore(ts);
@@ -39,9 +58,14 @@ export default function AttackPage() {
 
   const jumps = [
     { id: 'adversary-groups', icon: '🎯', label: 'Adversary Groups' },
+    { id: 'attack-scenarios', icon: '🧩', label: 'Attack Scenarios' },
     { id: 'ttp-graph', icon: '🕸️', label: 'TTP Graph' },
     { id: 'coverage-matrix', icon: '🗺️', label: 'Coverage Matrix' },
   ];
+
+  const scenarios = state.selectedActors.length > 0
+    ? ATTACK_SCENARIOS.filter(s => state.selectedActors.includes(s.actorId))
+    : ATTACK_SCENARIOS;
 
   return (
     <div className="animate-fade-in">
@@ -74,7 +98,34 @@ export default function AttackPage() {
           <h2 style={{ fontSize: 'var(--text-lg)' }}>🎯 Adversary Groups</h2>
           {state.selectedActors.length > 0 && <span className="badge badge-orange">{state.selectedActors.length} selected</span>}
         </div>
-        <ThreatActorSelector selectedActors={state.selectedActors} onToggle={toggleActor} />
+        <ThreatActorSelector
+          selectedActors={state.selectedActors}
+          onToggle={toggleActor}
+          actorCoverage={actorCoverage}
+        />
+      </section>
+
+      {/* ── ATTACK SCENARIOS ── */}
+      <section id="attack-scenarios" style={{ marginBottom: 'var(--space-10)', scrollMarginTop: 'var(--space-6)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
+          <h2 style={{ fontSize: 'var(--text-lg)' }}>🧩 Attack Scenarios</h2>
+          <span className="badge badge-purple">{scenarios.length}</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>
+            {state.selectedActors.length > 0
+              ? 'Kill chains for your selected groups — color = your live coverage'
+              : 'Select groups above to focus their kill chains'}
+          </span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(560px, 1fr))', gap: 'var(--space-5)' }}>
+          {scenarios.map(s => (
+            <AttackScenarioFlow
+              key={s.id}
+              scenario={s}
+              techniqueScores={techniqueScores}
+              onTechniqueClick={openTechnique}
+            />
+          ))}
+        </div>
       </section>
 
       {/* ── TTP GRAPH ── */}

@@ -1,12 +1,16 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { CONTROL_CATEGORIES } from '../../data/controlMappings';
 import { TECHNIQUES } from '../../data/attackData';
+import { runGapAnalysis, getRecommendations } from '../../services/coverageEngine';
+import MiniHeatmap from '../common/MiniHeatmap';
 
 /* ============================================================
  * DEFENSES PAGE — one scrollable view:
  *   1. Security Solutions (controls inventory with maturity)
  *   2. Detection Rules     (Sigma import + manual add + catalog)
+ *   3. Live Coverage       (real-time mini heatmap preview)
+ *   4. Coverage Gaps       (inline gaps + mitigation advice)
  * The single "Run analysis" action lives in the page header.
  * ============================================================ */
 
@@ -33,6 +37,8 @@ export default function SocPage({ onNavigate }) {
 
       <SolutionsSection />
       <RulesSection onNavigate={onNavigate} />
+      <LiveCoverageSection />
+      <CoverageGapsSection />
     </div>
   );
 }
@@ -521,6 +527,162 @@ level: high`}</pre>
           <button className="btn btn-ghost btn-sm" style={{ padding: '2px 8px', fontSize: 'var(--text-xs)' }} onClick={() => onNavigate('attack')}>⚔️ Attack</button>{' '}
           page, then run the analysis from the ⚡ button in the sidebar.
         </div>
+      </div>
+    </section>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+ * SECTION 3 — LIVE COVERAGE PREVIEW (mini heatmap, real-time)
+ * ════════════════════════════════════════════════════════════ */
+
+function LiveCoverageSection() {
+  const { state } = useApp();
+
+  const preview = useMemo(
+    () => runGapAnalysis(state.enabledControls, state.controlMaturity, state.detectionRules, state.selectedActors),
+    [state.enabledControls, state.controlMaturity, state.detectionRules, state.selectedActors],
+  );
+
+  const coveredPct = preview.totalTechniques ? Math.round((preview.coveredCount / preview.totalTechniques) * 100) : 0;
+  const barColor = coveredPct >= 61 ? 'var(--color-success)' : coveredPct >= 31 ? 'var(--color-warning)' : coveredPct > 0 ? 'var(--color-orange)' : 'var(--color-danger)';
+
+  return (
+    <section style={{ marginBottom: 'var(--space-10)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
+        <h2 style={{ fontSize: 'var(--text-lg)' }}>🕵️ Live Coverage Preview</h2>
+        <span className="badge badge-purple">{preview.coveredCount}/{preview.totalTechniques} covered</span>
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>
+          Updates in real time as you toggle controls or add rules
+        </span>
+      </div>
+
+      <div className="card" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-5)' }}>
+        {/* Summary bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', marginBottom: 'var(--space-5)' }}>
+          <div style={{ textAlign: 'center', minWidth: 70 }}>
+            <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 800, color: barColor, lineHeight: 1 }}>{coveredPct}%</div>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', fontWeight: 500, marginTop: 2 }}>covered</div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div className="coverage-bar" style={{ height: 10 }}>
+              <div className="coverage-bar-fill" style={{ width: `${coveredPct}%`, background: barColor }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>
+                {preview.criticalGaps.length} critical gaps · {preview.weakGaps.length} weak
+              </span>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>
+                posture {preview.postureScore}/100
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <MiniHeatmap techniqueScores={preview.techniqueScores} />
+      </div>
+    </section>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+ * SECTION 4 — COVERAGE GAPS (inline, with mitigation advice)
+ * ════════════════════════════════════════════════════════════ */
+
+const REC_TYPE_LABELS = { detection: '🛰️ Detection', control: '🛡️ Control', improvement: '📈 Improvement' };
+
+function GapRow({ gap }) {
+  const [open, setOpen] = useState(false);
+  const level = gap.score === 0 ? 'critical' : gap.score <= 30 ? 'high' : 'medium';
+  const levelLabel = gap.score === 0 ? 'No coverage' : gap.score <= 30 ? 'Weak' : 'Partial';
+
+  const recs = useMemo(() => {
+    try { return getRecommendations(gap, gap); } catch { return []; }
+  }, [gap]);
+
+  return (
+    <div style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3)',
+          cursor: 'pointer', userSelect: 'none',
+        }}
+        onClick={() => setOpen(o => !o)}
+      >
+        <span className={`sev-pill ${level}`} style={{ flexShrink: 0 }}>{levelLabel}</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--purple-400)', fontWeight: 700, minWidth: 60 }}>{gap.id}</span>
+        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', flex: 1, minWidth: 0 }} className="truncate">{gap.name}</span>
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', flexShrink: 0 }}>priority {gap.priority}</span>
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', flexShrink: 0, transition: 'transform var(--transition-fast)' }}>
+          {open ? '▾' : '▸'}
+        </span>
+      </div>
+      {open && (
+        <div style={{ padding: '0 var(--space-4) var(--space-4) var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          {recs.length === 0 && (
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>
+              No specific recommendation — see https://attack.mitre.org/techniques/{gap.id.replace('.', '/')}
+            </div>
+          )}
+          {recs.map((rec, i) => (
+            <div key={i} style={{
+              padding: 'var(--space-3)', borderRadius: 'var(--radius-md)',
+              background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 4, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700 }}>{REC_TYPE_LABELS[rec.type] || rec.type}</span>
+                <span className="badge badge-purple" style={{ fontSize: 9 }}>{rec.effort}</span>
+              </div>
+              <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>{rec.title}</div>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>{rec.description}</div>
+              {rec.mitigations?.length > 0 && (
+                <div style={{ display: 'flex', gap: 'var(--space-1)', flexWrap: 'wrap', marginTop: 6 }}>
+                  {rec.mitigations.slice(0, 4).map(m => (
+                    <span key={m.id || m.name} style={{
+                      fontSize: 9, padding: '2px 8px', borderRadius: 'var(--radius-full)',
+                      background: 'var(--violet-soft)', color: 'var(--purple-300)', fontWeight: 600,
+                    }}>
+                      {m.name || m}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CoverageGapsSection() {
+  const { state } = useApp();
+
+  const preview = useMemo(
+    () => runGapAnalysis(state.enabledControls, state.controlMaturity, state.detectionRules, state.selectedActors),
+    [state.enabledControls, state.controlMaturity, state.detectionRules, state.selectedActors],
+  );
+
+  const topGaps = preview.gaps.slice(0, 12);
+
+  return (
+    <section>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
+        <h2 style={{ fontSize: 'var(--text-lg)' }}>⚠️ Coverage Gaps</h2>
+        <span className="badge badge-danger">{preview.criticalGaps.length} critical</span>
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>
+          Techniques your SOC doesn't cover yet — expand a row for recommended mitigations
+        </span>
+      </div>
+
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        {topGaps.length === 0 ? (
+          <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 'var(--text-sm)' }}>
+            🎉 No gaps below 61% — your SOC covers every technique in the dataset.
+          </div>
+        ) : (
+          topGaps.map(g => <GapRow key={g.id} gap={g} />)
+        )}
       </div>
     </section>
   );

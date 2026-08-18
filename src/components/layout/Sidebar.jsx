@@ -1,10 +1,81 @@
 import { useApp } from '../../context/AppContext';
 
+/* ── Inline SVG icons (stroke style, inherits currentColor) ── */
+function Icon({ children, size = 18 }) {
+  return (
+    <svg
+      width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+      style={{ flexShrink: 0 }}
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+const ICONS = {
+  home: (
+    <>
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
+    </>
+  ),
+  soc: (
+    <>
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </>
+  ),
+  attack: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="22" y1="12" x2="18" y2="12" />
+      <line x1="6" y1="12" x2="2" y2="12" />
+      <line x1="12" y1="6" x2="12" y2="2" />
+      <line x1="12" y1="22" x2="12" y2="18" />
+      <circle cx="12" cy="12" r="2" />
+    </>
+  ),
+  analysis: (
+    <>
+      <line x1="12" y1="20" x2="12" y2="10" />
+      <line x1="18" y1="20" x2="18" y2="4" />
+      <line x1="6" y1="20" x2="6" y2="16" />
+    </>
+  ),
+  zap: (
+    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+  ),
+  reset: (
+    <>
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+    </>
+  ),
+  sun: (
+    <>
+      <circle cx="12" cy="12" r="5" />
+      <line x1="12" y1="1" x2="12" y2="3" />
+      <line x1="12" y1="21" x2="12" y2="23" />
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+      <line x1="1" y1="12" x2="3" y2="12" />
+      <line x1="21" y1="12" x2="23" y2="12" />
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+    </>
+  ),
+  moon: (
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+  ),
+};
+
 const PAGES = [
-  { id: 'home',     label: 'Overview',  icon: '🏠', page: 'home' },
-  { id: 'soc',      label: 'Defenses',  icon: '🛡️', page: 'soc' },
-  { id: 'attack',   label: 'ATT&CK',    icon: '⚔️', page: 'attack' },
-  { id: 'analysis', label: 'Results',   icon: '📊', page: 'analysis' },
+  { id: 'home',     label: 'Overview',  icon: 'home',     page: 'home' },
+  { id: 'soc',      label: 'Defenses',  icon: 'soc',      page: 'soc' },
+  { id: 'attack',   label: 'ATT&CK',    icon: 'attack',   page: 'attack' },
+  { id: 'analysis', label: 'Results',   icon: 'analysis', page: 'analysis' },
 ];
 
 export default function Sidebar({ activePage, onNavigate, open }) {
@@ -58,6 +129,7 @@ export default function Sidebar({ activePage, onNavigate, open }) {
               key={item.id}
               title={item.label}
               onClick={() => onNavigate(item.page)}
+              className={isActive ? 'nav-item-active' : undefined}
               style={{
                 display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
                 padding: 'var(--space-3) var(--space-3)',
@@ -73,7 +145,7 @@ export default function Sidebar({ activePage, onNavigate, open }) {
               onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--bg-tertiary)'; }}
               onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
             >
-              <span style={{ fontSize: '1.1rem', lineHeight: 1, flexShrink: 0 }}>{item.icon}</span>
+              <Icon>{ICONS[item.icon]}</Icon>
               <span className="sidebar-label" style={{ fontSize: 'var(--text-sm)', fontWeight: isActive ? 700 : 500 }}>
                 {item.label}
               </span>
@@ -102,8 +174,11 @@ export default function Sidebar({ activePage, onNavigate, open }) {
             flexShrink: 0,
           }}
         >
-          <span style={{ fontSize: '1.1rem', lineHeight: 1, flexShrink: 0, animation: loading ? 'pulse 1.2s infinite' : 'none' }}>{loading ? '⏳' : '⚡'}</span>
-          <span className="sidebar-label" style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'white' }}>
+          <Icon size={17}>{ICONS.zap}</Icon>
+          <span className="sidebar-label" style={{
+            fontSize: 'var(--text-sm)', fontWeight: 700, color: 'white',
+            animation: loading ? 'pulse 1.2s infinite' : 'none',
+          }}>
             {loading ? 'Analyzing…' : 'Run analysis'}
           </span>
         </div>
@@ -137,12 +212,16 @@ export default function Sidebar({ activePage, onNavigate, open }) {
             className={theme === 'dark' ? 'active' : ''}
             onClick={() => theme !== 'dark' && toggleTheme()}
             title="Dark mode"
-          >🌙</button>
+          >
+            <Icon size={14}>{ICONS.moon}</Icon>
+          </button>
           <button
             className={theme === 'light' ? 'active' : ''}
             onClick={() => theme !== 'light' && toggleTheme()}
             title="Light mode"
-          >☀️</button>
+          >
+            <Icon size={14}>{ICONS.sun}</Icon>
+          </button>
         </div>
         {(enabledControls.length > 0 || ownRules.length > 0) && (
           <div
@@ -159,7 +238,7 @@ export default function Sidebar({ activePage, onNavigate, open }) {
             onMouseEnter={e => e.currentTarget.style.color = 'var(--color-danger)'}
             onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
           >
-            <span style={{ fontSize: '1rem', lineHeight: 1, flexShrink: 0 }}>🔄</span>
+            <Icon size={15}>{ICONS.reset}</Icon>
             <span className="sidebar-label" style={{ fontSize: 'var(--text-xs)' }}>
               Reset
             </span>
