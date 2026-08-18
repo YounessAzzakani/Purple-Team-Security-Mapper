@@ -8,11 +8,6 @@ from ..services import data_loader
 router = APIRouter(prefix="/api", tags=["reference"], dependencies=[Depends(require_token)])
 
 
-@router.get("/controls")
-def get_controls():
-    return {"categories": data_loader.CONTROL_CATEGORIES, "controls": data_loader.ALL_CONTROLS}
-
-
 @router.get("/techniques")
 def get_techniques():
     return {

@@ -23,13 +23,124 @@ function loadTheme() {
   return 'dark';
 }
 
-const VALID_PAGES = ['home', 'soc', 'attack', 'analysis'];
+const VALID_PAGES = ['dashboard', 'soc', 'threat'];
+
+export const DEFAULT_SECURITY_SOLUTIONS = [
+  {
+    id: 'sol-edr',
+    name: 'CrowdStrike Falcon Insight',
+    category: 'Endpoint & EDR',
+    vendor: 'CrowdStrike',
+    status: 'enforcing',
+    dataSources: ['Process Creation', 'File Activity', 'Memory Scans', 'Network Sockets'],
+    description: 'Next-Gen EDR agent with behavioral telemetry & automated quarantine.',
+    enabled: true,
+  },
+  {
+    id: 'sol-siem',
+    name: 'Splunk Enterprise Security',
+    category: 'SIEM & Analytics',
+    vendor: 'Splunk',
+    status: 'enforcing',
+    dataSources: ['Windows Event Logs', 'Sysmon', 'Firewall Logs', 'Active Directory'],
+    description: 'Centralized security information and real-time event correlation engine.',
+    enabled: true,
+  },
+  {
+    id: 'sol-ngfw',
+    name: 'Palo Alto PA-5200 NGFW',
+    category: 'Network & Firewall',
+    vendor: 'Palo Alto Networks',
+    status: 'enforcing',
+    dataSources: ['DNS Queries', 'TLS Inspection', 'Flow Records', 'Threat Prevention'],
+    description: 'Deep packet inspection next-gen perimeter firewall with threat prevention.',
+    enabled: true,
+  },
+  {
+    id: 'sol-cloud',
+    name: 'AWS GuardDuty & CloudTrail',
+    category: 'Cloud Security',
+    vendor: 'Amazon Web Services',
+    status: 'monitoring',
+    dataSources: ['VPC Flow Logs', 'CloudTrail Management Events', 'S3 Access Logs'],
+    description: 'Intelligent threat detection for cloud workloads and AWS IAM anomalies.',
+    enabled: true,
+  },
+  {
+    id: 'sol-waf',
+    name: 'Cloudflare Enterprise WAF',
+    category: 'Application Security',
+    vendor: 'Cloudflare',
+    status: 'enforcing',
+    dataSources: ['HTTP/S Payload', 'Bot Management', 'DDoS Analytics'],
+    description: 'Edge layer 7 web application firewall and API protection gateway.',
+    enabled: true,
+  },
+];
+
+export const DEFAULT_DETECTION_METHODS = [
+  {
+    id: 'dm-sysmon',
+    name: 'Sysmon Process & Command Auditing',
+    type: 'Log Correlation',
+    confidence: 'High',
+    solutionId: 'sol-siem',
+    tactics: ['execution', 'persistence', 'defense-evasion'],
+    dataSources: ['Sysmon Event ID 1', 'Sysmon Event ID 7', 'PowerShell 4104'],
+    description: 'Real-time telemetry tracking parent-child process relationships and script blocks.',
+    enabled: true,
+  },
+  {
+    id: 'dm-behavioral',
+    name: 'Behavioral Anomaly & Process Injection Monitor',
+    type: 'Behavioral / ML',
+    confidence: 'High',
+    solutionId: 'sol-edr',
+    tactics: ['defense-evasion', 'privilege-escalation', 'credential-access'],
+    dataSources: ['Memory Injection Calls', 'API Hooking', 'LSASS Handle Requests'],
+    description: 'Machine learning heuristic detection of process hollowing and memory injection.',
+    enabled: true,
+  },
+  {
+    id: 'dm-netflow',
+    name: 'Encrypted Traffic Analysis & C2 Beaconing',
+    type: 'Network Inspection',
+    confidence: 'Medium',
+    solutionId: 'sol-ngfw',
+    tactics: ['command-and-control', 'exfiltration'],
+    dataSources: ['NetFlow / IPFIX', 'TLS JA3 Fingerprinting', 'DNS Tunneling'],
+    description: 'Algorithmic periodic jitter and beaconing pattern detection over TLS/DNS streams.',
+    enabled: true,
+  },
+  {
+    id: 'dm-cloud-iam',
+    name: 'Cloud Privilege Escalation & API Auditing',
+    type: 'Cloud Audit',
+    confidence: 'High',
+    solutionId: 'sol-cloud',
+    tactics: ['initial-access', 'persistence', 'privilege-escalation'],
+    dataSources: ['AssumeRole Events', 'AccessKey Manipulation', 'ConsoleLogin Anomaly'],
+    description: 'Continuous monitoring of IAM policy updates and anomalous root console logins.',
+    enabled: true,
+  },
+  {
+    id: 'dm-deception',
+    name: 'Honeytokens & Canary Credentials',
+    type: 'Deception',
+    confidence: 'High',
+    solutionId: 'sol-siem',
+    tactics: ['credential-access', 'lateral-movement'],
+    dataSources: ['Kerberoasting Canaries', 'Fake SMB Share Access', 'LSA Secrets Decoy'],
+    description: 'High-fidelity tripwire alarms triggered upon decoy credential interaction.',
+    enabled: true,
+  },
+];
 
 const initialState = {
-  activePage: 'home',       // 'home' | 'soc' | 'attack' | 'analysis'
+  activePage: 'dashboard',       // 'dashboard' | 'soc' | 'threat'
   theme: 'dark',
-  enabledControls: [],
-  controlMaturity: {},
+  securitySolutions: DEFAULT_SECURITY_SOLUTIONS,
+  detectionMethods: DEFAULT_DETECTION_METHODS,
   detectionRules: [],
   selectedActors: [],
   analysisResult: null,
@@ -46,9 +157,9 @@ function buildInitialState() {
   return {
     ...initialState,
     theme: loadTheme(),
-    activePage: 'home', // always start on the overview, never restore the last page
-    enabledControls: stored.enabledControls || [],
-    controlMaturity: stored.controlMaturity || {},
+    activePage: 'dashboard',
+    securitySolutions: stored.securitySolutions?.length ? stored.securitySolutions : DEFAULT_SECURITY_SOLUTIONS,
+    detectionMethods: stored.detectionMethods?.length ? stored.detectionMethods : DEFAULT_DETECTION_METHODS,
     selectedActors: stored.selectedActors || [],
   };
 }
@@ -56,29 +167,46 @@ function buildInitialState() {
 function reducer(state, action) {
   switch (action.type) {
     case 'SET_PAGE':
-      return { ...state, activePage: VALID_PAGES.includes(action.page) ? action.page : 'home' };
-    case 'TOGGLE_CONTROL': {
-      const { controlId } = action;
-      const isEnabled = state.enabledControls.includes(controlId);
-      const enabledControls = isEnabled
-        ? state.enabledControls.filter(id => id !== controlId)
-        : [...state.enabledControls, controlId];
-      return { ...state, enabledControls };
-    }
-    case 'TOGGLE_CATEGORY_CONTROLS': {
-      const { controlIds, enable } = action;
-      let enabledControls = [...state.enabledControls];
-      if (enable) {
-        controlIds.forEach(id => { if (!enabledControls.includes(id)) enabledControls.push(id); });
-      } else {
-        enabledControls = enabledControls.filter(id => !controlIds.includes(id));
-      }
-      return { ...state, enabledControls };
-    }
-    case 'SET_MATURITY': {
-      const { controlId, level } = action;
-      return { ...state, controlMaturity: { ...state.controlMaturity, [controlId]: level } };
-    }
+      return { ...state, activePage: action.page };
+
+    /* ── Security Solutions ── */
+    case 'ADD_SOLUTION':
+      return { ...state, securitySolutions: [action.solution, ...state.securitySolutions] };
+    case 'UPDATE_SOLUTION':
+      return {
+        ...state,
+        securitySolutions: state.securitySolutions.map(s => s.id === action.id ? { ...s, ...action.payload } : s),
+      };
+    case 'REMOVE_SOLUTION':
+      return {
+        ...state,
+        securitySolutions: state.securitySolutions.filter(s => s.id !== action.id),
+      };
+    case 'TOGGLE_SOLUTION':
+      return {
+        ...state,
+        securitySolutions: state.securitySolutions.map(s => s.id === action.id ? { ...s, enabled: !s.enabled } : s),
+      };
+
+    /* ── Detection Methods ── */
+    case 'ADD_DETECTION_METHOD':
+      return { ...state, detectionMethods: [action.method, ...state.detectionMethods] };
+    case 'UPDATE_DETECTION_METHOD':
+      return {
+        ...state,
+        detectionMethods: state.detectionMethods.map(m => m.id === action.id ? { ...m, ...action.payload } : m),
+      };
+    case 'REMOVE_DETECTION_METHOD':
+      return {
+        ...state,
+        detectionMethods: state.detectionMethods.filter(m => m.id !== action.id),
+      };
+    case 'TOGGLE_DETECTION_METHOD':
+      return {
+        ...state,
+        detectionMethods: state.detectionMethods.map(m => m.id === action.id ? { ...m, enabled: !m.enabled } : m),
+      };
+
     case 'SET_RULES':
       return { ...state, detectionRules: action.rules, apiError: null, loading: false };
     case 'REMOVE_RULE':
@@ -113,7 +241,7 @@ function reducer(state, action) {
       return {
         ...initialState,
         theme: state.theme,
-        activePage: 'home',
+        activePage: 'dashboard',
         detectionRules: state.detectionRules,
         analysesHistory: state.analysesHistory,
       };
@@ -125,15 +253,15 @@ function reducer(state, action) {
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, undefined, buildInitialState);
 
-  // Persist session inputs (the active page is intentionally NOT persisted)
+  // Persist session inputs
   useEffect(() => {
     const toSave = {
-      enabledControls: state.enabledControls,
-      controlMaturity: state.controlMaturity,
       selectedActors: state.selectedActors,
+      securitySolutions: state.securitySolutions,
+      detectionMethods: state.detectionMethods,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-  }, [state.enabledControls, state.controlMaturity, state.selectedActors]);
+  }, [state.selectedActors, state.securitySolutions, state.detectionMethods]);
 
   // Apply + persist theme
   useEffect(() => {
@@ -235,13 +363,47 @@ export function AppProvider({ children }) {
     }
   }, []);
 
+  /* ── Security Solutions Callbacks ── */
+  const addSolution = useCallback((solution) => {
+    const id = solution.id || `sol-${Date.now()}`;
+    dispatch({ type: 'ADD_SOLUTION', solution: { ...solution, id, enabled: true } });
+  }, []);
+
+  const updateSolution = useCallback((id, payload) => {
+    dispatch({ type: 'UPDATE_SOLUTION', id, payload });
+  }, []);
+
+  const removeSolution = useCallback((id) => {
+    dispatch({ type: 'REMOVE_SOLUTION', id });
+  }, []);
+
+  const toggleSolution = useCallback((id) => {
+    dispatch({ type: 'TOGGLE_SOLUTION', id });
+  }, []);
+
+  /* ── Detection Methods Callbacks ── */
+  const addDetectionMethod = useCallback((method) => {
+    const id = method.id || `dm-${Date.now()}`;
+    dispatch({ type: 'ADD_DETECTION_METHOD', method: { ...method, id, enabled: true } });
+  }, []);
+
+  const updateDetectionMethod = useCallback((id, payload) => {
+    dispatch({ type: 'UPDATE_DETECTION_METHOD', id, payload });
+  }, []);
+
+  const removeDetectionMethod = useCallback((id) => {
+    dispatch({ type: 'REMOVE_DETECTION_METHOD', id });
+  }, []);
+
+  const toggleDetectionMethod = useCallback((id) => {
+    dispatch({ type: 'TOGGLE_DETECTION_METHOD', id });
+  }, []);
+
   const runAnalysis = useCallback(async () => {
     dispatch({ type: 'SET_LOADING', loading: true });
     try {
       const body = await api.runAnalysis({
         name: `Analysis ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
-        controls: state.enabledControls,
-        maturity: state.controlMaturity,
         actorIds: state.selectedActors,
       });
       dispatch({ type: 'SET_ANALYSIS', result: body.result, meta: body.analysis });
@@ -251,12 +413,9 @@ export function AppProvider({ children }) {
       dispatch({ type: 'SET_API_ERROR', error: err.message });
       throw err;
     }
-  }, [state.enabledControls, state.controlMaturity, state.selectedActors, refreshHistory]);
+  }, [state.selectedActors, refreshHistory]);
 
   const setPage = useCallback((page) => dispatch({ type: 'SET_PAGE', page }), []);
-  const toggleControl = useCallback((controlId) => dispatch({ type: 'TOGGLE_CONTROL', controlId }), []);
-  const toggleCategoryControls = useCallback((controlIds, enable) => dispatch({ type: 'TOGGLE_CATEGORY_CONTROLS', controlIds, enable }), []);
-  const setMaturity = useCallback((controlId, level) => dispatch({ type: 'SET_MATURITY', controlId, level }), []);
   const toggleActor = useCallback((actorId) => dispatch({ type: 'TOGGLE_ACTOR', actorId }), []);
   const toggleTheme = useCallback(() => dispatch({ type: 'SET_THEME', theme: state.theme === 'dark' ? 'light' : 'dark' }), [state.theme]);
   const reset = useCallback(() => dispatch({ type: 'RESET' }), []);
@@ -266,13 +425,18 @@ export function AppProvider({ children }) {
       state,
       setPage,
       toggleTheme,
-      toggleControl,
-      toggleCategoryControls,
-      setMaturity,
       toggleActor,
       uploadRuleFile,
       addManualRule,
       removeRule,
+      addSolution,
+      updateSolution,
+      removeSolution,
+      toggleSolution,
+      addDetectionMethod,
+      updateDetectionMethod,
+      removeDetectionMethod,
+      toggleDetectionMethod,
       runAnalysis,
       loadAnalysis,
       refreshHistory,

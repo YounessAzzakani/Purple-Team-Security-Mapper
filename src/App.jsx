@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import Sidebar from './components/layout/Sidebar';
-import HomePage from './components/pages/HomePage';
-import SocPage from './components/pages/SocPage';
-import AttackPage from './components/pages/AttackPage';
-import AnalysisPage from './components/pages/AnalysisPage';
+import DashboardPage from './components/pages/DashboardPage';
+import SocCenterPage from './components/pages/SocCenterPage';
+import ThreatIntelPage from './components/pages/ThreatIntelPage';
 import './index.css';
 
 function AppShell() {
@@ -75,10 +74,9 @@ function AppShell() {
 
         {/* Page content */}
         <div key={state.activePage} className="animate-fade-in" style={{ paddingBottom: 'var(--space-16)' }}>
-          {state.activePage === 'home' && <HomePage onNavigate={navigate} />}
-          {state.activePage === 'soc' && <SocPage onNavigate={navigate} />}
-          {state.activePage === 'attack' && <AttackPage />}
-          {state.activePage === 'analysis' && <AnalysisPage onNavigate={navigate} />}
+          {state.activePage === 'dashboard' && <DashboardPage onNavigate={navigate} />}
+          {state.activePage === 'soc' && <SocCenterPage onNavigate={navigate} />}
+          {state.activePage === 'threat' && <ThreatIntelPage />}
         </div>
       </main>
     </div>

@@ -5,8 +5,6 @@ from pydantic import BaseModel, Field
 
 class AnalysisRequest(BaseModel):
     name: str = Field(default="Analyse", max_length=300)
-    controls: list[str] = Field(default_factory=list)
-    maturity: dict[str, str] = Field(default_factory=dict)
     actorIds: list[str] = Field(default_factory=list)
     ruleIds: list[int] | None = None  # None → use ALL imported rules
 

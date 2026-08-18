@@ -72,15 +72,14 @@ const ICONS = {
 };
 
 const PAGES = [
-  { id: 'home',     label: 'Overview',  icon: 'home',     page: 'home' },
-  { id: 'soc',      label: 'Defenses',  icon: 'soc',      page: 'soc' },
-  { id: 'attack',   label: 'ATT&CK',    icon: 'attack',   page: 'attack' },
-  { id: 'analysis', label: 'Results',   icon: 'analysis', page: 'analysis' },
+  { id: 'dashboard', label: 'Dashboard',  icon: 'home',   page: 'dashboard' },
+  { id: 'soc',       label: 'SOC Center', icon: 'soc',    page: 'soc' },
+  { id: 'threat',    label: 'Threat Intel', icon: 'attack', page: 'threat' },
 ];
 
 export default function Sidebar({ activePage, onNavigate, open }) {
   const { state, toggleTheme, runAnalysis, reset } = useApp();
-  const { theme, enabledControls, detectionRules, selectedActors, analysisResult, loading } = state;
+  const { theme, detectionRules, selectedActors, analysisResult, loading } = state;
 
   const ownRules = detectionRules.filter(r => r.source !== 'threat-actor');
   const postureScore = analysisResult?.postureScore ?? null;
@@ -92,16 +91,15 @@ export default function Sidebar({ activePage, onNavigate, open }) {
 
   const badgeFor = (id) => {
     if (id === 'soc') {
-      const n = enabledControls.length + ownRules.length;
+      const n = ownRules.length;
       return n > 0 ? n : null;
     }
-    if (id === 'attack') return selectedActors.length > 0 ? selectedActors.length : null;
-    if (id === 'analysis') return analysisResult ? analysisResult.gaps?.length : null;
+    if (id === 'threat') return selectedActors.length > 0 ? selectedActors.length : null;
     return null;
   };
 
   async function handleAnalyze() {
-    try { await runAnalysis(); onNavigate('analysis'); } catch { /* errors shown in UI */ }
+    try { await runAnalysis(); onNavigate('dashboard'); } catch { /* errors shown in UI */ }
   }
 
   return (
@@ -109,13 +107,35 @@ export default function Sidebar({ activePage, onNavigate, open }) {
       {/* Logo */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
-        padding: 'var(--space-3) var(--space-4)', marginBottom: 'var(--space-4)',
+        padding: 'var(--space-4) var(--space-4)', marginBottom: 'var(--space-3)',
         borderBottom: '1px solid var(--border-subtle)', width: '100%',
         flexShrink: 0,
       }}>
-        <div className="logo-icon" style={{ width: 36, height: 36, fontSize: '1rem', flexShrink: 0 }}>🟣</div>
-        <div className="logo-text sidebar-label" style={{ fontSize: 'var(--text-sm)' }}>
-          Purple Team
+        <div style={{
+          width: 38, height: 38, borderRadius: 'var(--radius-md)',
+          background: 'linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 0 16px rgba(124, 58, 237, 0.4)',
+          flexShrink: 0,
+        }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="12 2 2 7 12 12 22 7 12 2" />
+            <polyline points="2 17 12 22 22 17" />
+            <polyline points="2 12 12 17 22 12" />
+          </svg>
+        </div>
+        <div className="sidebar-label" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{
+            fontSize: 'var(--text-base)', fontWeight: 900, letterSpacing: '-0.02em',
+            background: 'linear-gradient(135deg, #f8fafc 30%, #c084fc 100%)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            lineHeight: 1.1,
+          }}>
+            SPECTRA<span style={{ color: '#22d3ee', WebkitTextFillColor: '#22d3ee' }}> // </span>OPS
+          </div>
+          <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.1em', marginTop: 2 }}>
+            ATT&CK POSTURE
+          </div>
         </div>
       </div>
 
@@ -223,7 +243,7 @@ export default function Sidebar({ activePage, onNavigate, open }) {
             <Icon size={14}>{ICONS.sun}</Icon>
           </button>
         </div>
-        {(enabledControls.length > 0 || ownRules.length > 0) && (
+        {ownRules.length > 0 && (
           <div
             title="Reset session"
             onClick={reset}

@@ -34,7 +34,7 @@ class Analysis(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(300), default="Analyse")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
-    # Full input snapshot (controls, maturity, rule ids, rule copies) — the run
+    # Full input snapshot (rule ids, rule copies, actors) — the run
     # is always reproducible verbatim from this.
     inputs_snapshot: Mapped[dict] = mapped_column(JSON, default=dict)
     # Complete run_gap_analysis() result.

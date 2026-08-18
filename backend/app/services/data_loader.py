@@ -17,8 +17,6 @@ def _load(name: str) -> list | dict:
 
 TACTICS: list[dict] = _load("tactics")
 TECHNIQUES: list[dict] = _load("techniques")
-CONTROL_CATEGORIES: list[dict] = _load("control_categories")
-ALL_CONTROLS: list[dict] = _load("all_controls")
 MITIGATIONS: dict[str, dict] = _load("mitigations")
 TECHNIQUE_INTEL: dict[str, dict] = _load("technique_intel")
 THREAT_ACTORS: list[dict] = _load("threat_actors")
@@ -26,12 +24,6 @@ THREAT_ACTORS: list[dict] = _load("threat_actors")
 TECHNIQUE_MAP: dict[str, dict] = {t["id"]: t for t in TECHNIQUES}
 TACTIC_MAP: dict[str, dict] = {t["id"]: t for t in TACTICS}
 ACTOR_MAP: dict[str, dict] = {a["id"]: a for a in THREAT_ACTORS}
-
-_CONTROL_MAP: dict[str, dict] = {c["id"]: c for c in ALL_CONTROLS}
-
-
-def get_control(control_id: str) -> dict | None:
-    return _CONTROL_MAP.get(control_id)
 
 
 def get_technique_intel(technique_id: str) -> dict:

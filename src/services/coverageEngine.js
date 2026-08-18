@@ -9,7 +9,6 @@
 // 5. Specific data sources and Sigma guidance per technique
 
 import { TECHNIQUES, TACTICS, TECHNIQUE_MAP } from '../data/attackData';
-import { ALL_CONTROLS } from '../data/controlMappings';
 import { ACTOR_MAP } from '../data/threatActors';
 import { getTechniqueIntel, MITIGATIONS } from '../data/mitigationsData';
 
@@ -25,69 +24,34 @@ const MATURITY_MULT = { basic: 0.5, intermediate: 0.75, advanced: 1.0 };
 //   Corrective bonus:               up to 10 pts  (was 5)
 // ============================================================
 
-function computeScore(techniqueId, enabledControls, controlMaturity, detectionRules) {
+function computeScore(techniqueId, detectionRules) {
   // ── Detection rules (PRIMARY signal) ──
   const coveringRules = detectionRules.filter(rule =>
     rule.source !== 'threat-actor' &&
     rule.techniques.some(tid => {
-      // Exact match
       if (tid === techniqueId) return true;
-      // Sub-technique matches parent (T1059.001 → T1059)
       if (techniqueId === tid.split('.')[0] && tid.includes('.')) return true;
-      // Parent matches sub-technique (T1059 → T1059.001)
       if (tid === techniqueId.split('.')[0] && techniqueId.includes('.')) return true;
       return false;
     })
   );
 
-  // Score rules with quality weighting
   let rulesScore = 0;
   coveringRules.forEach(rule => {
     const isExactMatch = rule.techniques.includes(techniqueId);
     const levelMult = { critical: 1.0, high: 0.85, medium: 0.7, low: 0.5 }[rule.level] || 0.7;
     const matchMult = isExactMatch ? 1.0 : 0.6;
-    rulesScore += 18 * levelMult * matchMult; // Each rule contributes up to 18 pts
+    rulesScore += 100 * levelMult * matchMult;
   });
-  rulesScore = Math.min(40, Math.round(rulesScore));
-
-  // ── Controls ──
-  const coveringControls = ALL_CONTROLS.filter(ctrl =>
-    enabledControls.includes(ctrl.id) && (
-      ctrl.coveredTechniques.includes(techniqueId) ||
-      // Also match if control covers parent technique
-      ctrl.coveredTechniques.includes(techniqueId.split('.')[0])
-    )
-  );
-
-  const preventiveControls = coveringControls.filter(c => c.type === 'preventive');
-  const detectiveControls  = coveringControls.filter(c => c.type === 'detective');
-  const correctiveControls = coveringControls.filter(c => c.type === 'corrective');
-
-  // Best preventive score (take the highest-maturity one)
-  const preventiveScore = preventiveControls.reduce((best, ctrl) => {
-    const s = 30 * (MATURITY_MULT[controlMaturity[ctrl.id]] || 0.5);
-    return s > best ? s : best;
-  }, 0);
-
-  // Best detective score
-  const detectiveScore = detectiveControls.reduce((best, ctrl) => {
-    const s = 20 * (MATURITY_MULT[controlMaturity[ctrl.id]] || 0.5);
-    return s > best ? s : best;
-  }, 0);
-
-  const correctiveBonus = correctiveControls.length > 0
-    ? Math.min(10, correctiveControls.length * 5 * (MATURITY_MULT[controlMaturity[correctiveControls[0]?.id]] || 0.5))
-    : 0;
-
-  const total = Math.min(100, Math.round(rulesScore + preventiveScore + detectiveScore + correctiveBonus));
+  const total = Math.min(100, Math.round(rulesScore));
 
   return {
     total,
-    rulesScore,
-    preventiveScore: Math.round(preventiveScore),
-    detectiveScore: Math.round(detectiveScore),
-    correctiveBonus: Math.round(correctiveBonus),
-    coveringControls,
+    rulesScore: total,
+    preventiveScore: 0,
+    detectiveScore: total,
+    correctiveBonus: 0,
+    coveringControls: [],
     coveringRules,
   };
 }
@@ -153,7 +117,7 @@ function registerDynamicTechniques(detectionRules) {
 // Full gap analysis
 // ============================================================
 
-export function runGapAnalysis(enabledControls, controlMaturity, detectionRules, selectedActors = []) {
+export function runGapAnalysis(detectionRules, selectedActors = []) {
   // Register any techniques from rules that aren't in our static dataset
   const dynamicTechniques = registerDynamicTechniques(detectionRules);
   const allTechniques = [...TECHNIQUES, ...dynamicTechniques];
@@ -162,7 +126,7 @@ export function runGapAnalysis(enabledControls, controlMaturity, detectionRules,
 
   // Score every technique
   allTechniques.forEach(technique => {
-    const r = computeScore(technique.id, enabledControls, controlMaturity, detectionRules);
+    const r = computeScore(technique.id, detectionRules);
     techniqueScores[technique.id] = {
       ...technique,
       score: r.total,
@@ -230,23 +194,17 @@ export function runGapAnalysis(enabledControls, controlMaturity, detectionRules,
   const inputAnalysis = {
     totalRules: ownRules.length,
     uniqueTechniquesFromRules: uniqueTechsFromRules.size,
-    totalControlsEnabled: enabledControls.length,
+    totalControlsEnabled: 0,
     dynamicTechniquesAdded: dynamicTechniques.length,
     // Techniques only covered by rules (no control)
     ruleOnlyCoverage: rootTechniques.filter(t => {
       const ts = techniqueScores[t.id];
-      return ts && ts.rulesScore > 0 && ts.preventiveScore === 0 && ts.detectiveScore === 0;
+      return ts && ts.rulesScore > 0;
     }).length,
     // Techniques only covered by controls (no rules)
-    controlOnlyCoverage: rootTechniques.filter(t => {
-      const ts = techniqueScores[t.id];
-      return ts && ts.rulesScore === 0 && (ts.preventiveScore > 0 || ts.detectiveScore > 0);
-    }).length,
+    controlOnlyCoverage: 0,
     // Techniques with BOTH rules and controls
-    fullCoverage: rootTechniques.filter(t => {
-      const ts = techniqueScores[t.id];
-      return ts && ts.rulesScore > 0 && (ts.preventiveScore > 0 || ts.detectiveScore > 0);
-    }).length,
+    fullCoverage: 0,
   };
 
   // Threat actor analysis

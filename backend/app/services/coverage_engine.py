@@ -14,7 +14,6 @@ import math
 
 from .data_loader import (
     ACTOR_MAP,
-    ALL_CONTROLS,
     MITIGATIONS,
     TACTIC_MAP,
     TACTICS,
@@ -22,8 +21,6 @@ from .data_loader import (
     TECHNIQUES,
     get_technique_intel,
 )
-
-MATURITY_MULT = {"basic": 0.5, "intermediate": 0.75, "advanced": 1.0}
 
 
 def _jround(x: float) -> int:
@@ -42,8 +39,8 @@ def _rule_covers(rule: dict, technique_id: str) -> bool:
     return False
 
 
-def compute_score(technique_id: str, enabled_controls: list, control_maturity: dict, detection_rules: list) -> dict:
-    """Mirror of JS computeScore()."""
+def compute_score(technique_id: str, detection_rules: list) -> dict:
+    """Computes a technique score (0-100) purely based on imported/manual rules."""
     covering_rules = [
         rule
         for rule in detection_rules
@@ -53,51 +50,23 @@ def compute_score(technique_id: str, enabled_controls: list, control_maturity: d
     rules_score = 0
     for rule in covering_rules:
         is_exact_match = technique_id in rule["techniques"]
+        # Level mapping: critical=100%, high=85%, medium=70%, low=50%
         level_mult = {"critical": 1.0, "high": 0.85, "medium": 0.7, "low": 0.5}.get(rule.get("level"), 0.7)
+        # 100 max possible points per technique. If rule is exact, it gives full points * level_mult. 
+        # If it's a parent/child match, penalty of 0.6
         match_mult = 1.0 if is_exact_match else 0.6
-        rules_score += 18 * level_mult * match_mult
-    rules_score = min(40, _jround(rules_score))
-
-    covering_controls = [
-        ctrl
-        for ctrl in ALL_CONTROLS
-        if ctrl["id"] in enabled_controls
-        and (
-            technique_id in ctrl["coveredTechniques"]
-            or technique_id.split(".")[0] in ctrl["coveredTechniques"]
-        )
-    ]
-
-    preventive_controls = [c for c in covering_controls if c["type"] == "preventive"]
-    detective_controls = [c for c in covering_controls if c["type"] == "detective"]
-    corrective_controls = [c for c in covering_controls if c["type"] == "corrective"]
-
-    preventive_score = 0
-    for ctrl in preventive_controls:
-        s = 30 * MATURITY_MULT.get(control_maturity.get(ctrl["id"]), 0.5)
-        if s > preventive_score:
-            preventive_score = s
-
-    detective_score = 0
-    for ctrl in detective_controls:
-        s = 20 * MATURITY_MULT.get(control_maturity.get(ctrl["id"]), 0.5)
-        if s > detective_score:
-            detective_score = s
-
-    corrective_bonus = 0
-    if corrective_controls:
-        first = corrective_controls[0]
-        corrective_bonus = min(10, len(corrective_controls) * 5 * MATURITY_MULT.get(control_maturity.get(first["id"]), 0.5))
-
-    total = min(100, _jround(rules_score + preventive_score + detective_score + corrective_bonus))
+        # To make it possible to reach 100 with a single critical rule, the base points is 100.
+        rules_score += 100 * level_mult * match_mult
+        
+    total = min(100, _jround(rules_score))
 
     return {
         "total": total,
-        "rulesScore": rules_score,
-        "preventiveScore": _jround(preventive_score),
-        "detectiveScore": _jround(detective_score),
-        "correctiveBonus": _jround(corrective_bonus),
-        "coveringControls": covering_controls,
+        "rulesScore": total,
+        "preventiveScore": 0,
+        "detectiveScore": total,
+        "correctiveBonus": 0,
+        "coveringControls": [],
         "coveringRules": covering_rules,
     }
 
@@ -158,8 +127,8 @@ def register_dynamic_techniques(detection_rules: list) -> list:
     return dynamic
 
 
-def run_gap_analysis(enabled_controls: list, control_maturity: dict, detection_rules: list, selected_actors: list = None) -> dict:
-    """Mirror of JS runGapAnalysis()."""
+def run_gap_analysis(detection_rules: list, selected_actors: list = None) -> dict:
+    """Run gap analysis purely on detection rules."""
     if selected_actors is None:
         selected_actors = []
 
@@ -168,7 +137,7 @@ def run_gap_analysis(enabled_controls: list, control_maturity: dict, detection_r
 
     technique_scores = {}
     for technique in all_techniques:
-        r = compute_score(technique["id"], enabled_controls, control_maturity, detection_rules)
+        r = compute_score(technique["id"], detection_rules)
         technique_scores[technique["id"]] = {
             **technique,
             "score": r["total"],
@@ -233,20 +202,14 @@ def run_gap_analysis(enabled_controls: list, control_maturity: dict, detection_r
     input_analysis = {
         "totalRules": len(own_rules),
         "uniqueTechniquesFromRules": len(unique_techs_from_rules),
-        "totalControlsEnabled": len(enabled_controls),
+        "totalControlsEnabled": 0,
         "dynamicTechniquesAdded": len(dynamic_techniques),
         "ruleOnlyCoverage": len([
             t for t in root_techniques
-            if (ts := technique_scores[t["id"]]) and ts["rulesScore"] > 0 and ts["preventiveScore"] == 0 and ts["detectiveScore"] == 0
+            if (ts := technique_scores[t["id"]]) and ts["rulesScore"] > 0
         ]),
-        "controlOnlyCoverage": len([
-            t for t in root_techniques
-            if (ts := technique_scores[t["id"]]) and ts["rulesScore"] == 0 and (ts["preventiveScore"] > 0 or ts["detectiveScore"] > 0)
-        ]),
-        "fullCoverage": len([
-            t for t in root_techniques
-            if (ts := technique_scores[t["id"]]) and ts["rulesScore"] > 0 and (ts["preventiveScore"] > 0 or ts["detectiveScore"] > 0)
-        ]),
+        "controlOnlyCoverage": 0,
+        "fullCoverage": 0,
     }
 
     actor_analysis = []

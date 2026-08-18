@@ -58,11 +58,9 @@ def _summary(a: Analysis) -> dict:
 @router.post("")
 def create_analysis(payload: AnalysisRequest, db: Session = Depends(get_db)):
     rules = _load_rules(db, payload.ruleIds)
-    result = run_gap_analysis(payload.controls, payload.maturity, rules, payload.actorIds)
+    result = run_gap_analysis(rules, payload.actorIds)
 
     snapshot = {
-        "controls": payload.controls,
-        "maturity": payload.maturity,
         "actorIds": payload.actorIds,
         "ruleIds": payload.ruleIds if payload.ruleIds is not None else "all",
         "rules": rules,
