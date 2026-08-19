@@ -165,7 +165,7 @@ function GlowingPostureGauge({ score }) {
           {/* Background track */}
           <circle
             cx="70" cy="70" r={radius}
-            fill="none" stroke="rgba(255, 255, 255, 0.06)" strokeWidth="10"
+            fill="none" stroke="var(--border-default)" strokeWidth="10"
           />
           {/* Gradient definitions */}
           <defs>
@@ -196,7 +196,7 @@ function GlowingPostureGauge({ score }) {
 
         {/* Center score readout */}
         <div style={{ position: 'absolute', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <span style={{ fontSize: '2.4rem', fontWeight: 900, color: '#f8fafc', lineHeight: 1, letterSpacing: '-0.03em' }}>
+          <span style={{ fontSize: '2.4rem', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '-0.03em' }}>
             {score !== null ? score : '--'}
           </span>
           <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: 700, letterSpacing: '0.05em', marginTop: 2 }}>
@@ -289,19 +289,15 @@ export default function DashboardPage({ onNavigate }) {
       {/* ════════════════════════════════════════════════════════════
        * TIER 1: EXECUTIVE TELEMETRY & SYSTEM STATUS BAR
        * ════════════════════════════════════════════════════════════ */}
-      <div style={{
+      <div className="glass-panel" style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexWrap: 'wrap', gap: 'var(--space-4)',
         padding: 'var(--space-4) var(--space-6)',
-        borderRadius: 'var(--radius-lg)',
-        background: 'rgba(13, 18, 31, 0.65)',
-        border: '1px solid var(--border-subtle)',
-        backdropFilter: 'blur(16px)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
           <div className="telemetry-pill">
             <span className="pulse-dot online" />
-            <span style={{ fontWeight: 700, color: '#f8fafc' }}>ATT&CK v14.1</span>
+            <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>ATT&CK v14.1</span>
             <span style={{ color: 'var(--text-tertiary)' }}>// READY</span>
           </div>
           <div className="telemetry-pill">
@@ -332,17 +328,24 @@ export default function DashboardPage({ onNavigate }) {
             <span>Target APTs</span>
           </button>
           <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => onNavigate('history')}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}
+          >
+            <Icon name="history" size={14} />
+            <span>Reports & History</span>
+          </button>
+          <button
             className="btn btn-primary btn-sm"
-            onClick={handleQuickAnalyze}
-            disabled={loading}
+            onClick={() => onNavigate('scan')}
             style={{
               display: 'flex', alignItems: 'center', gap: 6, fontSize: 12,
               background: 'linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%)',
               boxShadow: '0 0 16px rgba(124, 58, 237, 0.35)',
             }}
           >
-            <Icon name="zap" size={14} />
-            <span>{loading ? 'Running Engine…' : 'Run Full Analysis'}</span>
+            <Icon name="radar" size={14} />
+            <span>Launch Scan Engine</span>
           </button>
         </div>
       </div>
@@ -356,7 +359,7 @@ export default function DashboardPage({ onNavigate }) {
           {/* Left: Master Posture Dial */}
           <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            paddingRight: 'var(--space-6)', borderRight: '1px solid rgba(255, 255, 255, 0.08)',
+            paddingRight: 'var(--space-6)', borderRight: '1px solid var(--border-subtle)',
           }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: 'var(--space-3)' }}>
               Overall Defense Posture
@@ -381,11 +384,11 @@ export default function DashboardPage({ onNavigate }) {
             <div className="metric-tile" style={{ borderLeft: '3px solid #8b5cf6' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span className="metric-tile-label">Detection Rules Ingested</span>
-                <div className="metric-tile-icon" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#c084fc' }}>
+                <div className="metric-tile-icon" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#7c3aed' }}>
                   <Icon name="fileCode" size={18} />
                 </div>
               </div>
-              <div className="metric-tile-val" style={{ color: '#f8fafc' }}>
+              <div className="metric-tile-val">
                 {ownRules.length}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-secondary)' }}>
@@ -571,18 +574,18 @@ export default function DashboardPage({ onNavigate }) {
                 <div key={item.label} style={{
                   display: 'flex', flexDirection: 'column', gap: 4,
                   padding: '6px 10px', borderRadius: 'var(--radius-sm)',
-                  background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-subtle)',
+                  background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ width: 8, height: 8, borderRadius: '50%', background: item.color }} />
-                      <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{item.label}</span>
+                      <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{item.label}</span>
                     </div>
-                    <span style={{ fontWeight: 700, color: '#f8fafc', fontFamily: 'JetBrains Mono' }}>
+                    <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'JetBrains Mono' }}>
                       {item.count} <span style={{ color: 'var(--text-tertiary)', fontSize: 10 }}>({item.pct}%)</span>
                     </span>
                   </div>
-                  <div style={{ width: '100%', height: 4, background: 'rgba(255, 255, 255, 0.05)', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ width: '100%', height: 4, background: 'var(--border-default)', borderRadius: 2, overflow: 'hidden' }}>
                     <div style={{ width: `${item.pct}%`, height: '100%', background: item.color, borderRadius: 2 }} />
                   </div>
                 </div>

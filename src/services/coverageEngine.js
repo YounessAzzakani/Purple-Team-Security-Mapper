@@ -1,34 +1,54 @@
 // ============================================================
-// Coverage Engine v2 — Dynamic Gap Analysis
+// Coverage Engine v2 — Dynamic Gap Analysis & Posture Scoring
 // ============================================================
-// Key changes from v1:
-// 1. Detection rules weighted 40/100 (was 25) — user rules are PRIMARY input
-// 2. Sub-technique → parent score propagation
-// 3. Dynamic technique registration (unknown IDs from Sigma get added)
-// 4. Per-technique recommendations from mitigationsData.js (not generic per-tactic)
-// 5. Specific data sources and Sigma guidance per technique
+// Features:
+// 1. Detection rules weighted with Sigma/manual rule matches
+// 2. Security Solutions mapped to MITRE Mitigations & Tactic domains (Preventive)
+// 3. Detection Methods mapped to Tactic categories & Data Sources (Detective)
+// 4. Sub-technique → parent score propagation
+// 5. Dynamic technique registration (unknown IDs from Sigma get added)
+// 6. Per-technique recommendations from mitigationsData.js
 
 import { TECHNIQUES, TACTICS, TECHNIQUE_MAP } from '../data/attackData';
 import { ACTOR_MAP } from '../data/threatActors';
 import { getTechniqueIntel, MITIGATIONS } from '../data/mitigationsData';
 
-const MATURITY_MULT = { basic: 0.5, intermediate: 0.75, advanced: 1.0 };
+// ── Category Mappings for Security Solutions & Detection Methods ──
+export const SOLUTION_MITIGATION_MAP = {
+  'Endpoint & EDR': ['M1049', 'M1040', 'M1038', 'M1050', 'M1028', 'M1022', 'M1024', 'M1034'],
+  'Network & Firewall': ['M1037', 'M1031', 'M1030', 'M1020', 'M1035'],
+  'Application Security': ['M1056', 'M1021', 'M1048', 'M1054'],
+  'Identity & Access': ['M1032', 'M1026', 'M1027', 'M1036', 'M1018', 'M1015'],
+  'Cloud Security': ['M1032', 'M1026', 'M1047', 'M1056', 'M1018'],
+  'Email Security': ['M1021', 'M1049', 'M1017'],
+  'Data Security': ['M1057', 'M1053'],
+  'SIEM & Analytics': ['M1047', 'M1019'],
+};
+
+export const SOLUTION_TACTIC_MAP = {
+  'Endpoint & EDR': ['TA0002', 'TA0003', 'TA0004', 'TA0005', 'TA0006', 'TA0007', 'TA0008', 'TA0040', 'execution', 'persistence', 'privilege-escalation', 'defense-evasion', 'credential-access', 'discovery', 'lateral-movement', 'impact'],
+  'Network & Firewall': ['TA0001', 'TA0008', 'TA0010', 'TA0011', 'initial-access', 'lateral-movement', 'exfiltration', 'command-and-control'],
+  'SIEM & Analytics': ['TA0001', 'TA0002', 'TA0003', 'TA0004', 'TA0005', 'TA0006', 'TA0007', 'TA0008', 'TA0009', 'TA0010', 'TA0011', 'TA0040'],
+  'Cloud Security': ['TA0001', 'TA0003', 'TA0004', 'TA0006', 'TA0007', 'TA0008', 'TA0010', 'initial-access', 'persistence', 'privilege-escalation', 'credential-access', 'discovery', 'lateral-movement', 'exfiltration'],
+  'Application Security': ['TA0001', 'TA0002', 'TA0005', 'initial-access', 'execution', 'defense-evasion'],
+  'Identity & Access': ['TA0001', 'TA0003', 'TA0004', 'TA0006', 'TA0008', 'initial-access', 'persistence', 'privilege-escalation', 'credential-access', 'lateral-movement'],
+  'Email Security': ['TA0001', 'initial-access'],
+  'Data Security': ['TA0009', 'TA0010', 'TA0040', 'collection', 'exfiltration', 'impact'],
+};
 
 // ============================================================
 // SCORING
 // ============================================================
-// New weight distribution:
-//   Detection rules (Sigma/manual): up to 40 pts  (was 25)
-//   Preventive controls:            up to 30 pts  (was 40)
-//   Detective controls:             up to 20 pts  (was 35)
-//   Corrective bonus:               up to 10 pts  (was 5)
-// ============================================================
+export function computeScore(techniqueOrId, detectionRules = [], securitySolutions = [], detectionMethods = []) {
+  const techniqueId = typeof techniqueOrId === 'string' ? techniqueOrId : techniqueOrId.id;
+  const techniqueObj = typeof techniqueOrId === 'object' ? techniqueOrId : (TECHNIQUE_MAP[techniqueId] || { id: techniqueId, tactic: 'TA0002' });
+  const tacticId = techniqueObj.tactic || 'TA0002';
+  const intel = getTechniqueIntel(techniqueId) || { mitigations: [], dataSources: [] };
 
-function computeScore(techniqueId, detectionRules) {
-  // ── Detection rules (PRIMARY signal) ──
-  const coveringRules = detectionRules.filter(rule =>
+  // 1. ── Detection Rules Score ──
+  const coveringRules = (detectionRules || []).filter(rule =>
     rule.source !== 'threat-actor' &&
-    rule.techniques.some(tid => {
+    (rule.techniques || []).some(tid => {
       if (tid === techniqueId) return true;
       if (techniqueId === tid.split('.')[0] && tid.includes('.')) return true;
       if (tid === techniqueId.split('.')[0] && techniqueId.includes('.')) return true;
@@ -36,22 +56,111 @@ function computeScore(techniqueId, detectionRules) {
     })
   );
 
-  let rulesScore = 0;
+  let rulesRaw = 0;
   coveringRules.forEach(rule => {
-    const isExactMatch = rule.techniques.includes(techniqueId);
+    const isExactMatch = (rule.techniques || []).includes(techniqueId);
     const levelMult = { critical: 1.0, high: 0.85, medium: 0.7, low: 0.5 }[rule.level] || 0.7;
     const matchMult = isExactMatch ? 1.0 : 0.6;
-    rulesScore += 100 * levelMult * matchMult;
+    rulesRaw += 100 * levelMult * matchMult;
   });
-  const total = Math.min(100, Math.round(rulesScore));
+  const rulesScore = Math.min(100, Math.round(rulesRaw));
+
+  // 2. ── Security Solutions (Preventive Controls) ──
+  const coveringControls = [];
+  let preventiveRaw = 0;
+
+  const activeSolutions = (securitySolutions || []).filter(s => s && s.enabled !== false);
+  activeSolutions.forEach(sol => {
+    const cat = sol.category || 'Endpoint & EDR';
+    const isEnforcing = !sol.status || sol.status === 'enforcing';
+    if (!isEnforcing) return;
+
+    const suppMits = SOLUTION_MITIGATION_MAP[cat] || [];
+    const overlapMits = suppMits.filter(m => (intel.mitigations || []).includes(m));
+    const suppTactics = SOLUTION_TACTIC_MAP[cat] || [];
+    const tacticMatch = suppTactics.includes(tacticId);
+
+    if (overlapMits.length > 0) {
+      preventiveRaw += 50 * Math.min(2, overlapMits.length);
+      coveringControls.push({
+        id: sol.id,
+        name: sol.name,
+        type: 'Preventive Solution',
+        categoryName: cat,
+        details: `Mitigates via ${overlapMits.join(', ')}`,
+      });
+    } else if (tacticMatch) {
+      preventiveRaw += 35;
+      coveringControls.push({
+        id: sol.id,
+        name: sol.name,
+        type: 'Preventive Solution',
+        categoryName: cat,
+        details: `Covers tactic domain`,
+      });
+    }
+  });
+  const preventiveScore = Math.min(100, Math.round(preventiveRaw));
+
+  // 3. ── Detection Methods (Detective Telemetry) ──
+  let methodsRaw = 0;
+  const activeMethods = (detectionMethods || []).filter(m => m && m.enabled !== false);
+  activeMethods.forEach(method => {
+    const methodTactics = (method.tactics || []).map(t => String(t).toLowerCase());
+    const tacticMatches = methodTactics.includes(tacticId.toLowerCase()) ||
+      methodTactics.some(mt => {
+        const tacObj = TACTICS.find(t => t.id === tacticId);
+        return tacObj && (tacObj.shortName.toLowerCase() === mt || tacObj.name.toLowerCase() === mt);
+      });
+
+    if (tacticMatches) {
+      const confMult = { High: 1.0, Medium: 0.75, Low: 0.5 }[method.confidence] || 0.75;
+      const dsOverlap = (method.dataSources || []).some(ds =>
+        (intel.dataSources || []).some(ids =>
+          ids.toLowerCase().includes(ds.toLowerCase()) || ds.toLowerCase().includes(ids.toLowerCase())
+        )
+      );
+      const fidMult = dsOverlap ? 1.25 : 1.0;
+      methodsRaw += 40 * confMult * fidMult;
+
+      coveringControls.push({
+        id: method.id,
+        name: method.name,
+        type: 'Detection Method',
+        categoryName: method.type || 'Detection Telemetry',
+        details: `Confidence: ${method.confidence || 'Medium'}${dsOverlap ? ' · Matched Data Source' : ''}`,
+      });
+    }
+  });
+  const methodsScore = Math.min(100, Math.round(methodsRaw));
+
+  // 4. ── Combined Detective & Overall Posture Score ──
+  let detectiveScore = 0;
+  if (rulesScore > 0 && methodsScore > 0) {
+    detectiveScore = Math.min(100, Math.round(rulesScore * 0.6 + methodsScore * 0.4));
+  } else if (rulesScore > 0) {
+    detectiveScore = rulesScore;
+  } else {
+    detectiveScore = methodsScore;
+  }
+
+  let total = 0;
+  if (rulesScore > 0 && (preventiveScore > 0 || methodsScore > 0)) {
+    total = Math.min(100, Math.round(rulesScore * 0.40 + preventiveScore * 0.30 + methodsScore * 0.30));
+  } else if (rulesScore > 0) {
+    total = Math.min(100, Math.round(rulesScore * 0.75));
+  } else if (preventiveScore > 0 || methodsScore > 0) {
+    total = Math.min(100, Math.round(preventiveScore * 0.50 + methodsScore * 0.50));
+  }
 
   return {
     total,
-    rulesScore: total,
-    preventiveScore: 0,
-    detectiveScore: total,
+    rulesScore,
+    preventiveScore,
+    detectiveScore,
+    methodsScore,
     correctiveBonus: 0,
-    coveringControls: [],
+    coveringControls,
     coveringRules,
   };
 }
@@ -84,15 +193,13 @@ export function getCoverageLevelColor(score) {
 // ============================================================
 // Dynamic technique registration
 // ============================================================
-// If a Sigma rule references a technique not in our dataset,
-// create a stub entry so it still appears in the analysis.
 function registerDynamicTechniques(detectionRules) {
   const dynamicTechniques = [];
   const allKnownIds = new Set(TECHNIQUES.map(t => t.id));
 
-  detectionRules.forEach(rule => {
+  (detectionRules || []).forEach(rule => {
     if (rule.source === 'threat-actor') return;
-    rule.techniques.forEach(tid => {
+    (rule.techniques || []).forEach(tid => {
       if (!allKnownIds.has(tid)) {
         const parentId = tid.split('.')[0];
         const parentTechnique = TECHNIQUE_MAP[parentId];
@@ -116,8 +223,23 @@ function registerDynamicTechniques(detectionRules) {
 // ============================================================
 // Full gap analysis
 // ============================================================
+export function runGapAnalysis(arg1 = [], arg2 = [], arg3 = [], arg4 = []) {
+  let detectionRules = [];
+  let selectedActors = [];
+  let securitySolutions = [];
+  let detectionMethods = [];
 
-export function runGapAnalysis(detectionRules, selectedActors = []) {
+  // Legacy signature: (enabledControls, controlMaturity, detectionRules, selectedActors)
+  if (Array.isArray(arg1) && typeof arg2 === 'object' && !Array.isArray(arg2) && Array.isArray(arg3)) {
+    detectionRules = arg3;
+    selectedActors = arg4 || [];
+  } else if (Array.isArray(arg1)) {
+    detectionRules = arg1;
+    selectedActors = arg2 || [];
+    securitySolutions = arg3 || [];
+    detectionMethods = arg4 || [];
+  }
+
   // Register any techniques from rules that aren't in our static dataset
   const dynamicTechniques = registerDynamicTechniques(detectionRules);
   const allTechniques = [...TECHNIQUES, ...dynamicTechniques];
@@ -126,7 +248,7 @@ export function runGapAnalysis(detectionRules, selectedActors = []) {
 
   // Score every technique
   allTechniques.forEach(technique => {
-    const r = computeScore(technique.id, detectionRules);
+    const r = computeScore(technique, detectionRules, securitySolutions, detectionMethods);
     techniqueScores[technique.id] = {
       ...technique,
       score: r.total,
@@ -134,6 +256,7 @@ export function runGapAnalysis(detectionRules, selectedActors = []) {
       rulesScore:       r.rulesScore,
       preventiveScore:  r.preventiveScore,
       detectiveScore:   r.detectiveScore,
+      methodsScore:     r.methodsScore,
       correctiveBonus:  r.correctiveBonus,
       coveringControls: r.coveringControls,
       coveringRules:    r.coveringRules,
@@ -156,9 +279,7 @@ export function runGapAnalysis(detectionRules, selectedActors = []) {
     };
   });
 
-  // Root techniques — dedupe by id: MITRE maps some techniques to several
-  // tactics (e.g. T1078 in Initial Access AND Privilege Escalation), so the
-  // same id would otherwise be counted and rendered twice.
+  // Root techniques — dedupe by id
   const seenRootIds = new Set();
   const rootTechniques = allTechniques.filter(t => {
     if (t.parent) return false;
@@ -166,6 +287,7 @@ export function runGapAnalysis(detectionRules, selectedActors = []) {
     seenRootIds.add(t.id);
     return true;
   });
+
   const gaps = rootTechniques
     .map(t => {
       const ts = techniqueScores[t.id];
@@ -187,31 +309,39 @@ export function runGapAnalysis(detectionRules, selectedActors = []) {
   const postureScore = totalWeight ? Math.round(weightedSum / totalWeight) : 0;
 
   // ── Input quality analysis ──
-  const ownRules = detectionRules.filter(r => r.source !== 'threat-actor');
+  const ownRules = (detectionRules || []).filter(r => r.source !== 'threat-actor');
   const uniqueTechsFromRules = new Set();
-  ownRules.forEach(r => r.techniques.forEach(t => uniqueTechsFromRules.add(t)));
+  ownRules.forEach(r => (r.techniques || []).forEach(t => uniqueTechsFromRules.add(t)));
+
+  const activeSolutionsCount = (securitySolutions || []).filter(s => s && s.enabled !== false).length;
+  const activeMethodsCount = (detectionMethods || []).filter(m => m && m.enabled !== false).length;
 
   const inputAnalysis = {
     totalRules: ownRules.length,
     uniqueTechniquesFromRules: uniqueTechsFromRules.size,
-    totalControlsEnabled: 0,
+    totalControlsEnabled: activeSolutionsCount + activeMethodsCount,
+    totalSolutions: activeSolutionsCount,
+    totalMethods: activeMethodsCount,
     dynamicTechniquesAdded: dynamicTechniques.length,
-    // Techniques only covered by rules (no control)
     ruleOnlyCoverage: rootTechniques.filter(t => {
       const ts = techniqueScores[t.id];
-      return ts && ts.rulesScore > 0;
+      return ts && ts.rulesScore > 0 && ts.preventiveScore === 0 && (ts.methodsScore || 0) === 0;
     }).length,
-    // Techniques only covered by controls (no rules)
-    controlOnlyCoverage: 0,
-    // Techniques with BOTH rules and controls
-    fullCoverage: 0,
+    controlOnlyCoverage: rootTechniques.filter(t => {
+      const ts = techniqueScores[t.id];
+      return ts && ts.rulesScore === 0 && (ts.preventiveScore > 0 || (ts.methodsScore || 0) > 0);
+    }).length,
+    fullCoverage: rootTechniques.filter(t => {
+      const ts = techniqueScores[t.id];
+      return ts && ts.rulesScore > 0 && (ts.preventiveScore > 0 || (ts.methodsScore || 0) > 0);
+    }).length,
   };
 
   // Threat actor analysis
-  const actorAnalysis = selectedActors.map(actorId => {
+  const actorAnalysis = (selectedActors || []).map(actorId => {
     const actor = ACTOR_MAP[actorId];
     if (!actor) return null;
-    const actorTechs = actor.techniques.map(tid => techniqueScores[tid]).filter(Boolean);
+    const actorTechs = (actor.techniques || []).map(tid => techniqueScores[tid]).filter(Boolean);
     const covered = actorTechs.filter(ts => ts.score > 30).length;
     const avgScore = actorTechs.length
       ? Math.round(actorTechs.reduce((s, ts) => s + ts.score, 0) / actorTechs.length)
@@ -249,9 +379,8 @@ export function runGapAnalysis(detectionRules, selectedActors = []) {
 // ============================================================
 // Per-technique recommendations (DYNAMIC, from mitigationsData)
 // ============================================================
-
 export function getRecommendations(technique, techniqueScore) {
-  const intel = getTechniqueIntel(technique.id);
+  const intel = getTechniqueIntel(technique.id) || { mitigations: [], dataSources: [] };
   const recs = [];
 
   // ── Missing detection rules ──
@@ -268,10 +397,10 @@ export function getRecommendations(technique, techniqueScore) {
 
   // ── Missing preventive controls ──
   if (techniqueScore.preventiveScore === 0) {
-    const relevantMitigations = intel.mitigations
+    const relevantMitigations = (intel.mitigations || [])
       .map(mid => MITIGATIONS[mid])
       .filter(Boolean)
-      .filter(m => ['M1038', 'M1032', 'M1030', 'M1050', 'M1051', 'M1049', 'M1021', 'M1022', 'M1026', 'M1027', 'M1028', 'M1034', 'M1035', 'M1037', 'M1057'].includes(m.id));
+      .filter(m => ['M1049', 'M1038', 'M1032', 'M1030', 'M1050', 'M1051', 'M1049', 'M1021', 'M1022', 'M1026', 'M1027', 'M1028', 'M1034', 'M1035', 'M1037', 'M1057'].includes(m.id));
 
     if (relevantMitigations.length > 0) {
       recs.push({
@@ -285,21 +414,21 @@ export function getRecommendations(technique, techniqueScore) {
     }
   }
 
-  // ── Has prevention but no detection ──
-  if (techniqueScore.rulesScore === 0 && (techniqueScore.preventiveScore > 0 || techniqueScore.detectiveScore > 0)) {
+  // ── Has prevention/method but no detection rule ──
+  if (techniqueScore.rulesScore === 0 && (techniqueScore.preventiveScore > 0 || (techniqueScore.methodsScore || 0) > 0)) {
     recs.push({
       type: 'detection',
       priority: 'medium',
-      title: `Add specific detection for ${technique.name}`,
-      description: `Controls are in place but no detection rule targets this technique. If the control is bypassed, there is no alert. Recommended sources: ${intel.dataSources.join(', ')}.`,
+      title: `Add specific alert rule for ${technique.name}`,
+      description: `Security controls or telemetry are in place, but no dedicated Sigma alert targets this technique. Recommended data sources: ${(intel.dataSources || []).join(', ')}.`,
       effort: 'Medium',
       dataSources: intel.dataSources,
     });
   }
 
-  // ── Has detection but no prevention ──
+  // ── Has detection rule but no preventive control ──
   if (techniqueScore.rulesScore > 0 && techniqueScore.preventiveScore === 0) {
-    const preventiveMitigations = intel.mitigations
+    const preventiveMitigations = (intel.mitigations || [])
       .map(mid => MITIGATIONS[mid])
       .filter(Boolean)
       .slice(0, 2);
@@ -309,30 +438,16 @@ export function getRecommendations(technique, techniqueScore) {
         type: 'control',
         priority: 'medium',
         title: `Complete with a preventive control for ${technique.name}`,
-        description: `Detection is in place, but no control proactively blocks this technique. Consider: ${preventiveMitigations.map(m => m.name).join(', ')}.`,
+        description: `Detection is in place, but no active control proactively blocks this technique. Consider: ${preventiveMitigations.map(m => m.name).join(', ')}.`,
         effort: 'Medium',
         mitigations: preventiveMitigations,
       });
     }
   }
 
-  // ── Low maturity ──
-  const lowMaturityControls = techniqueScore.coveringControls.filter(c =>
-    !['intermediate', 'advanced'].includes(techniqueScore._maturityMap?.[c.id])
-  );
-  if (lowMaturityControls.length > 0 && techniqueScore.score > 0 && techniqueScore.score < 50) {
-    recs.push({
-      type: 'improvement',
-      priority: 'low',
-      title: `Increase control maturity for ${technique.name}`,
-      description: `${lowMaturityControls.length} control(s) at "Basic" level. Moving to Intermediate or Advanced would significantly increase the score.`,
-      effort: 'Low',
-    });
-  }
-
   // ── General mitigations info ──
-  if (intel.mitigations.length > 0 && recs.length === 0 && techniqueScore.score < 80) {
-    const allMits = intel.mitigations.map(mid => MITIGATIONS[mid]).filter(Boolean);
+  if ((intel.mitigations || []).length > 0 && recs.length === 0 && techniqueScore.score < 80) {
+    const allMits = (intel.mitigations || []).map(mid => MITIGATIONS[mid]).filter(Boolean);
     recs.push({
       type: 'improvement',
       priority: 'low',

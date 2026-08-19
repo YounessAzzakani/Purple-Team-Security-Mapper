@@ -43,8 +43,8 @@ def test_auth_required():
 
 
 def test_reference_endpoints():
-    r = client.get("/api/controls", headers=AUTH).json()
-    assert len(r["controls"]) == 33
+    r = client.get("/api/mitigations", headers=AUTH).json()
+    assert len(r) > 10
     r = client.get("/api/techniques", headers=AUTH).json()
     assert len(r["techniques"]) > 100 and len(r["tactics"]) == 12
     assert len(client.get("/api/actors", headers=AUTH).json()) >= 8
@@ -115,12 +115,22 @@ def test_full_analysis_lifecycle():
 def test_compare_analyses():
     base = client.post(
         "/api/analyses",
-        json={"name": "Base", "controls": ["siem"], "maturity": {"siem": "basic"}, "actorIds": []},
+        json={"name": "Base", "solutions": [], "actorIds": []},
         headers=AUTH,
     ).json()
     better = client.post(
         "/api/analyses",
-        json={"name": "Avec EDR", "controls": ["siem", "edr", "mfa"], "maturity": {"siem": "basic", "edr": "advanced", "mfa": "basic"}, "actorIds": []},
+        json={
+            "name": "Avec EDR",
+            "solutions": [
+                {"id": "sol-edr", "name": "CrowdStrike EDR", "category": "Endpoint & EDR", "status": "enforcing", "enabled": True},
+                {"id": "sol-ngfw", "name": "Palo Alto NGFW", "category": "Network & Firewall", "status": "enforcing", "enabled": True},
+            ],
+            "detectionMethods": [
+                {"id": "dm-sysmon", "name": "Sysmon Telemetry", "type": "Log Correlation", "confidence": "High", "tactics": ["execution", "persistence"], "enabled": True},
+            ],
+            "actorIds": [],
+        },
         headers=AUTH,
     ).json()
     comp = client.get(f"/api/analyses/{better['analysis']['id']}/compare?base={base['analysis']['id']}", headers=AUTH).json()

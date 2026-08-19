@@ -45,6 +45,7 @@ export const runAnalysis = (payload) => apiFetch('/api/analyses', {
 });
 export const listAnalyses = () => apiFetch('/api/analyses');
 export const getAnalysis = (id) => apiFetch(`/api/analyses/${id}`);
+export const deleteAnalysis = (id) => apiFetch(`/api/analyses/${id}`, { method: 'DELETE' });
 export const compareAnalyses = (id, baseId) => apiFetch(`/api/analyses/${id}/compare?base=${baseId}`);
 export const runSimulation = (analysisId, actorIds, opts = {}) => apiFetch(`/api/analyses/${analysisId}/simulate`, {
   method: 'POST',

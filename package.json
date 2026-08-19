@@ -11,7 +11,10 @@
   },
   "dependencies": {
     "d3-force": "^3.0.0",
+    "html2canvas": "^1.4.1",
     "js-yaml": "^5.2.3",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "recharts": "^3.10.1"

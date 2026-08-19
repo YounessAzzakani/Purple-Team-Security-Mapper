@@ -4,6 +4,8 @@ import Sidebar from './components/layout/Sidebar';
 import DashboardPage from './components/pages/DashboardPage';
 import SocCenterPage from './components/pages/SocCenterPage';
 import ThreatIntelPage from './components/pages/ThreatIntelPage';
+import RunScanPage from './components/pages/RunScanPage';
+import HistoryPage from './components/pages/HistoryPage';
 import './index.css';
 
 function AppShell() {
@@ -77,6 +79,8 @@ function AppShell() {
           {state.activePage === 'dashboard' && <DashboardPage onNavigate={navigate} />}
           {state.activePage === 'soc' && <SocCenterPage onNavigate={navigate} />}
           {state.activePage === 'threat' && <ThreatIntelPage />}
+          {state.activePage === 'scan' && <RunScanPage onNavigate={navigate} />}
+          {state.activePage === 'history' && <HistoryPage onNavigate={navigate} />}
         </div>
       </main>
     </div>

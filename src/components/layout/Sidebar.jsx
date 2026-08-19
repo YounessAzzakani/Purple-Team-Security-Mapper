@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 
 /* ── Inline SVG icons (stroke style, inherits currentColor) ── */
@@ -53,6 +54,28 @@ const ICONS = {
       <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
     </>
   ),
+  radar: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 2a10 10 0 1 0 10 10" />
+      <path d="M12 6a6 6 0 1 0 6 6" />
+      <path d="M12 10a2 2 0 1 0 2 2" />
+      <line x1="12" y1="12" x2="19.07" y2="4.93" />
+    </>
+  ),
+  history: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+      <path d="M3.05 11a9 9 0 0 1 .5-2m1.8-3.4A9 9 0 0 1 12 3" />
+    </>
+  ),
+  chevronLeft: (
+    <polyline points="15 18 9 12 15 6" />
+  ),
+  chevronRight: (
+    <polyline points="9 18 15 12 9 6" />
+  ),
   sun: (
     <>
       <circle cx="12" cy="12" r="5" />
@@ -72,14 +95,17 @@ const ICONS = {
 };
 
 const PAGES = [
-  { id: 'dashboard', label: 'Dashboard',  icon: 'home',   page: 'dashboard' },
-  { id: 'soc',       label: 'SOC Center', icon: 'soc',    page: 'soc' },
-  { id: 'threat',    label: 'Threat Intel', icon: 'attack', page: 'threat' },
+  { id: 'dashboard', label: 'Dashboard',        icon: 'home',    page: 'dashboard' },
+  { id: 'soc',       label: 'SOC Center',       icon: 'soc',     page: 'soc' },
+  { id: 'threat',    label: 'Threat Intel',     icon: 'attack',  page: 'threat' },
+  { id: 'scan',      label: 'Scan Engine',      icon: 'radar',   page: 'scan', highlight: true },
+  { id: 'history',   label: 'Reports & History',icon: 'history', page: 'history' },
 ];
 
 export default function Sidebar({ activePage, onNavigate, open }) {
   const { state, toggleTheme, runAnalysis, reset } = useApp();
-  const { theme, detectionRules, selectedActors, analysisResult, loading } = state;
+  const { theme, detectionRules, selectedActors, analysisResult, analysesHistory, loading } = state;
+  const [collapsed, setCollapsed] = useState(false);
 
   const ownRules = detectionRules.filter(r => r.source !== 'threat-actor');
   const postureScore = analysisResult?.postureScore ?? null;
@@ -95,48 +121,73 @@ export default function Sidebar({ activePage, onNavigate, open }) {
       return n > 0 ? n : null;
     }
     if (id === 'threat') return selectedActors.length > 0 ? selectedActors.length : null;
+    if (id === 'history') return (analysesHistory || []).length > 0 ? analysesHistory.length : null;
     return null;
   };
 
   async function handleAnalyze() {
-    try { await runAnalysis(); onNavigate('dashboard'); } catch { /* errors shown in UI */ }
+    onNavigate('scan');
   }
 
+  const sidebarClasses = [
+    'app-sidebar',
+    open ? 'open' : '',
+    collapsed ? 'collapsed' : '',
+  ].filter(Boolean).join(' ');
+
   return (
-    <aside className={open ? 'app-sidebar open' : 'app-sidebar'}>
-      {/* Logo */}
+    <aside className={sidebarClasses}>
+      {/* Logo Header with Collapse Toggle */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
-        padding: 'var(--space-4) var(--space-4)', marginBottom: 'var(--space-3)',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: 'var(--space-4) var(--space-3)', marginBottom: 'var(--space-2)',
         borderBottom: '1px solid var(--border-subtle)', width: '100%',
         flexShrink: 0,
       }}>
-        <div style={{
-          width: 38, height: 38, borderRadius: 'var(--radius-md)',
-          background: 'linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 0 16px rgba(124, 58, 237, 0.4)',
-          flexShrink: 0,
-        }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="12 2 2 7 12 12 22 7 12 2" />
-            <polyline points="2 17 12 22 22 17" />
-            <polyline points="2 12 12 17 22 12" />
-          </svg>
-        </div>
-        <div className="sidebar-label" style={{ display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minWidth: 0, flex: 1 }}>
           <div style={{
-            fontSize: 'var(--text-base)', fontWeight: 900, letterSpacing: '-0.02em',
-            background: 'linear-gradient(135deg, #f8fafc 30%, #c084fc 100%)',
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            lineHeight: 1.1,
+            width: 38, height: 38, borderRadius: 'var(--radius-md)',
+            background: 'linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 0 16px rgba(124, 58, 237, 0.4)',
+            flexShrink: 0,
           }}>
-            SPECTRA<span style={{ color: '#22d3ee', WebkitTextFillColor: '#22d3ee' }}> // </span>OPS
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 2 7 12 12 22 7 12 2" />
+              <polyline points="2 17 12 22 22 17" />
+              <polyline points="2 12 12 17 22 12" />
+            </svg>
           </div>
-          <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.1em', marginTop: 2 }}>
-            ATT&CK POSTURE
-          </div>
+          {!collapsed && (
+            <div className="sidebar-label" style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              <div className="brand-title">
+                ATTACK<span style={{ color: 'var(--purple-400)' }}>PRISM</span>
+              </div>
+              <div className="sidebar-subtitle" style={{
+                fontSize: 9.5, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.06em',
+                marginTop: 2, whiteSpace: 'nowrap',
+              }}>
+                ADVERSARY DEFENSE ENGINE
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Shrink / Expand Toggle Button */}
+        <button
+          onClick={() => setCollapsed(c => !c)}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          style={{
+            background: 'transparent', border: '1px solid var(--border-subtle)',
+            color: 'var(--text-tertiary)', borderRadius: 'var(--radius-sm)',
+            width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--purple-400)'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.borderColor = 'var(--border-subtle)'; }}
+        >
+          <Icon size={14}>{collapsed ? ICONS.chevronRight : ICONS.chevronLeft}</Icon>
+        </button>
       </div>
 
       {/* Navigation */}
@@ -151,13 +202,15 @@ export default function Sidebar({ activePage, onNavigate, open }) {
               onClick={() => onNavigate(item.page)}
               className={isActive ? 'nav-item-active' : undefined}
               style={{
-                display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
-                padding: 'var(--space-3) var(--space-3)',
+                display: 'flex', alignItems: 'center',
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                gap: collapsed ? 0 : 'var(--space-3)',
+                padding: collapsed ? '10px 0' : 'var(--space-3) var(--space-3)',
                 borderRadius: 'var(--radius-md)',
                 cursor: 'pointer',
                 position: 'relative',
                 background: isActive ? 'var(--violet-soft)' : 'transparent',
-                borderLeft: isActive ? '3px solid var(--purple-400)' : '3px solid transparent',
+                borderLeft: !collapsed && isActive ? '3px solid var(--purple-400)' : '3px solid transparent',
                 color: isActive ? 'var(--purple-300)' : 'var(--text-secondary)',
                 transition: 'all var(--transition-fast)',
                 flexShrink: 0,
@@ -166,11 +219,15 @@ export default function Sidebar({ activePage, onNavigate, open }) {
               onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
             >
               <Icon>{ICONS[item.icon]}</Icon>
-              <span className="sidebar-label" style={{ fontSize: 'var(--text-sm)', fontWeight: isActive ? 700 : 500 }}>
-                {item.label}
-              </span>
-              {badge !== null && badge > 0 && (
-                <span className="nav-badge" style={{ marginLeft: 'auto', flexShrink: 0 }}>{badge}</span>
+              {!collapsed && (
+                <>
+                  <span className="sidebar-label" style={{ fontSize: 'var(--text-sm)', fontWeight: isActive ? 700 : 500 }}>
+                    {item.label}
+                  </span>
+                  {badge !== null && badge > 0 && (
+                    <span className="nav-badge" style={{ marginLeft: 'auto', flexShrink: 0 }}>{badge}</span>
+                  )}
+                </>
               )}
             </div>
           );
@@ -181,11 +238,13 @@ export default function Sidebar({ activePage, onNavigate, open }) {
 
         {/* Analyze button */}
         <div
-          title="Run analysis"
+          title="Launch scan engine"
           onClick={handleAnalyze}
           style={{
-            display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
-            padding: 'var(--space-3) var(--space-3)',
+            display: 'flex', alignItems: 'center',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            gap: collapsed ? 0 : 'var(--space-3)',
+            padding: collapsed ? '10px 0' : 'var(--space-3) var(--space-3)',
             borderRadius: 'var(--radius-md)',
             cursor: loading ? 'not-allowed' : 'pointer',
             background: 'var(--gradient-purple)',
@@ -195,27 +254,33 @@ export default function Sidebar({ activePage, onNavigate, open }) {
           }}
         >
           <Icon size={17}>{ICONS.zap}</Icon>
-          <span className="sidebar-label" style={{
-            fontSize: 'var(--text-sm)', fontWeight: 700, color: 'white',
-            animation: loading ? 'pulse 1.2s infinite' : 'none',
-          }}>
-            {loading ? 'Analyzing…' : 'Run analysis'}
-          </span>
+          {!collapsed && (
+            <span className="sidebar-label" style={{
+              fontSize: 'var(--text-sm)', fontWeight: 700, color: 'white',
+              animation: loading ? 'pulse 1.2s infinite' : 'none',
+            }}>
+              {loading ? 'Analyzing…' : 'Run analysis'}
+            </span>
+          )}
         </div>
       </div>
 
       {/* Score ring (if analysis exists) */}
       {postureScore !== null && (
         <div title={`Posture: ${postureScore}/100`} style={{
-          display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
-          padding: 'var(--space-3) var(--space-3)',
+          display: 'flex', alignItems: 'center',
+          justifyContent: collapsed ? 'center' : 'flex-start',
+          gap: collapsed ? 0 : 'var(--space-3)',
+          padding: collapsed ? 'var(--space-2) 0' : 'var(--space-3) var(--space-3)',
           flexShrink: 0,
         }}>
           <MiniRing score={postureScore} color={postureColor} />
-          <div className="sidebar-label">
-            <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Posture score</div>
-            <div style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: postureColor }}>{postureScore}/100</div>
-          </div>
+          {!collapsed && (
+            <div className="sidebar-label">
+              <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Posture score</div>
+              <div style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: postureColor }}>{postureScore}/100</div>
+            </div>
+          )}
         </div>
       )}
 

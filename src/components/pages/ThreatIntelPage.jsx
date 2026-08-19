@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { THREAT_ACTORS, ACTOR_MAP } from '../../data/threatActors';
-import { TACTICS, TACTIC_MAP, TECHNIQUE_MAP } from '../../data/attackData';
+import { TACTICS, TACTIC_MAP, TECHNIQUE_MAP, TECHNIQUES } from '../../data/attackData';
 import { runGapAnalysis, getCoverageLevel, getCoverageLevelLabel } from '../../services/coverageEngine';
 import ActorGraph from '../attack/ActorGraph';
 import AttackMatrix from '../AttackMatrix';
@@ -69,22 +69,6 @@ function Icon({ name, size = 16, style = {} }) {
   );
 }
 
-// Kill-chain tactical sequence
-const KILL_CHAIN_TACTICS = [
-  'initial-access',
-  'execution',
-  'persistence',
-  'privilege-escalation',
-  'defense-evasion',
-  'credential-access',
-  'discovery',
-  'lateral-movement',
-  'collection',
-  'command-and-control',
-  'exfiltration',
-  'impact',
-];
-
 export default function ThreatIntelPage() {
   const { state, toggleActor } = useApp();
   const [activeActorId, setActiveActorId] = useState(THREAT_ACTORS[0].id); // Active group being inspected
@@ -95,8 +79,8 @@ export default function ThreatIntelPage() {
 
   // Live gap analysis
   const preview = useMemo(
-    () => runGapAnalysis(state.detectionRules, state.selectedActors),
-    [state.detectionRules, state.selectedActors],
+    () => runGapAnalysis(state.detectionRules, state.selectedActors, state.securitySolutions, state.detectionMethods),
+    [state.detectionRules, state.selectedActors, state.securitySolutions, state.detectionMethods],
   );
 
   const techniqueScores = preview.techniqueScores;
@@ -142,26 +126,24 @@ export default function ThreatIntelPage() {
   // Group techniques by Kill-Chain Tactic for the active APT
   const actorTtpByTactic = useMemo(() => {
     const map = {};
-    KILL_CHAIN_TACTICS.forEach(tId => {
-      map[tId] = [];
+    TACTICS.forEach(tac => {
+      map[tac.id] = [];
     });
 
     activeActor.techniques.forEach(tid => {
       // Find which tactic this technique belongs to
-      let foundTactic = null;
-      for (const tac of TACTICS) {
-        if (tac.techniques?.some(t => t.id === tid || t.id.startsWith(tid) || tid.startsWith(t.id))) {
-          foundTactic = tac.id;
-          break;
-        }
+      const techObj = TECHNIQUE_MAP[tid] || TECHNIQUES.find(t => t.id === tid);
+      let tacticId = techObj?.tactic;
+      if (!tacticId && tid.includes('.')) {
+        const parentId = tid.split('.')[0];
+        tacticId = TECHNIQUE_MAP[parentId]?.tactic || TECHNIQUES.find(t => t.id === parentId)?.tactic;
       }
-      const finalTactic = foundTactic || 'execution';
+      const finalTactic = tacticId || 'TA0002';
       if (!map[finalTactic]) map[finalTactic] = [];
 
-      const techObj = TECHNIQUE_MAP[tid] || { id: tid, name: tid, tactic: finalTactic };
       const scoreObj = techniqueScores[tid] || { score: 0, level: 'none' };
       map[finalTactic].push({
-        ...techObj,
+        ...(techObj || { id: tid, name: tid, tactic: finalTactic }),
         score: scoreObj.score,
         scoreObj,
       });
@@ -172,15 +154,14 @@ export default function ThreatIntelPage() {
 
   // Radar data for the active APT group
   const actorRadarData = useMemo(() => {
-    return KILL_CHAIN_TACTICS.map(tId => {
-      const tacName = TACTIC_MAP[tId]?.name.split(' ')[0] || tId;
-      const groupTtpCount = actorTtpByTactic[tId]?.length || 0;
+    return TACTICS.map(tac => {
+      const groupTtpCount = actorTtpByTactic[tac.id]?.length || 0;
       const groupCoverageAvg = groupTtpCount > 0
-        ? Math.round(actorTtpByTactic[tId].reduce((sum, t) => sum + t.score, 0) / groupTtpCount)
+        ? Math.round(actorTtpByTactic[tac.id].reduce((sum, t) => sum + t.score, 0) / groupTtpCount)
         : 0;
 
       return {
-        tactic: tacName,
+        tactic: tac.name.split(' ')[0],
         ttpCount: groupTtpCount * 25, // Scaled for radar
         defenseScore: groupCoverageAvg,
       };
@@ -198,14 +179,10 @@ export default function ThreatIntelPage() {
       {/* ════════════════════════════════════════════════════════════
        * HEADER & TELEMETRY STRIP
        * ════════════════════════════════════════════════════════════ */}
-      <div style={{
+      <div className="glass-panel" style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexWrap: 'wrap', gap: 'var(--space-4)',
         padding: 'var(--space-4) var(--space-6)',
-        borderRadius: 'var(--radius-lg)',
-        background: 'rgba(13, 18, 31, 0.65)',
-        border: '1px solid var(--border-subtle)',
-        backdropFilter: 'blur(16px)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
           <div style={{
@@ -217,7 +194,7 @@ export default function ThreatIntelPage() {
             <Icon name="crosshair" size={22} />
           </div>
           <div>
-            <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 900, letterSpacing: '-0.02em', color: '#f8fafc' }}>
+            <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
               Threat Intelligence & Adversary TTPs
             </h1>
             <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
@@ -229,11 +206,11 @@ export default function ThreatIntelPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
           <div className="telemetry-pill">
             <span className="pulse-dot online" />
-            <span>APT PROFILES: <strong style={{ color: '#f8fafc' }}>{THREAT_ACTORS.length}</strong></span>
+            <span>APT PROFILES: <strong>{THREAT_ACTORS.length}</strong></span>
           </div>
           <div className="telemetry-pill">
-            <Icon name="target" size={13} style={{ color: '#fb923c' }} />
-            <span>SELECTED FOR SCAN: <strong style={{ color: '#fb923c' }}>{state.selectedActors.length}</strong></span>
+            <Icon name="target" size={13} style={{ color: '#ea580c' }} />
+            <span>SELECTED FOR SCAN: <strong style={{ color: 'var(--color-orange)' }}>{state.selectedActors.length}</strong></span>
           </div>
         </div>
       </div>
@@ -244,7 +221,7 @@ export default function ThreatIntelPage() {
       <div className="glass-panel" style={{ padding: 'var(--space-5)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
           <div>
-            <h3 style={{ fontSize: 'var(--text-base)', color: '#f8fafc', fontWeight: 800 }}>
+            <h3 style={{ fontSize: 'var(--text-base)', color: 'var(--text-primary)', fontWeight: 800 }}>
               🎯 Adversary Group Profiles
             </h3>
             <p style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
@@ -265,11 +242,11 @@ export default function ThreatIntelPage() {
                 key={f.id}
                 onClick={() => setOriginFilter(f.id)}
                 style={{
-                  fontSize: 11, padding: '3px 10px', borderRadius: 'var(--radius-full)',
-                  background: originFilter === f.id ? 'linear-gradient(135deg, #7c3aed, #fb923c)' : 'rgba(255, 255, 255, 0.04)',
-                  border: `1px solid ${originFilter === f.id ? '#fb923c' : 'var(--border-subtle)'}`,
-                  color: originFilter === f.id ? '#ffffff' : 'var(--text-secondary)',
-                  fontWeight: originFilter === f.id ? 700 : 500,
+                  fontSize: 11, padding: '4px 12px', borderRadius: 'var(--radius-full)',
+                  background: originFilter === f.id ? 'linear-gradient(135deg, #7c3aed, #ea580c)' : 'var(--bg-tertiary)',
+                  border: `1px solid ${originFilter === f.id ? '#ea580c' : 'var(--border-default)'}`,
+                  color: originFilter === f.id ? '#ffffff' : 'var(--text-primary)',
+                  fontWeight: originFilter === f.id ? 700 : 600,
                   cursor: 'pointer',
                   transition: 'all var(--transition-fast)',
                 }}
@@ -297,8 +274,8 @@ export default function ThreatIntelPage() {
                   borderRadius: 'var(--radius-md)',
                   background: isInspected
                     ? 'linear-gradient(135deg, rgba(251, 146, 60, 0.15), rgba(124, 58, 237, 0.15))'
-                    : 'rgba(255, 255, 255, 0.025)',
-                  border: `1px solid ${isInspected ? '#fb923c' : 'var(--border-subtle)'}`,
+                    : 'var(--bg-tertiary)',
+                  border: `1px solid ${isInspected ? '#ea580c' : 'var(--border-subtle)'}`,
                   boxShadow: isInspected ? '0 0 16px rgba(251, 146, 60, 0.25)' : 'none',
                   cursor: 'pointer',
                   transition: 'all var(--transition-fast)',
@@ -308,7 +285,7 @@ export default function ThreatIntelPage() {
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 13, fontWeight: 800, color: isInspected ? '#fb923c' : '#f8fafc' }}>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: isInspected ? '#ea580c' : 'var(--text-primary)' }}>
                         {actor.name}
                       </span>
                     </div>
@@ -321,10 +298,10 @@ export default function ThreatIntelPage() {
                   <button
                     onClick={(e) => { e.stopPropagation(); toggleActor(actor.id); }}
                     style={{
-                      fontSize: 10, padding: '2px 7px', borderRadius: 4,
-                      background: isSelectedForScan ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                      border: `1px solid ${isSelectedForScan ? '#10b981' : 'var(--border-subtle)'}`,
-                      color: isSelectedForScan ? '#10b981' : 'var(--text-tertiary)',
+                      fontSize: 10, padding: '3px 8px', borderRadius: 4,
+                      background: isSelectedForScan ? 'rgba(16, 185, 129, 0.18)' : 'var(--bg-secondary)',
+                      border: `1px solid ${isSelectedForScan ? '#10b981' : 'var(--border-default)'}`,
+                      color: isSelectedForScan ? '#059669' : 'var(--text-secondary)',
                       fontWeight: 700, cursor: 'pointer',
                     }}
                     title={isSelectedForScan ? 'Selected in global scan' : 'Click to include in global scan'}
@@ -336,10 +313,10 @@ export default function ThreatIntelPage() {
                 {/* Coverage bar */}
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginBottom: 3 }}>
-                    <span style={{ color: 'var(--text-tertiary)' }}>{stat.covered}/{stat.total} TTPs Defended</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>{stat.covered}/{stat.total} TTPs Defended</span>
                     <span style={{ fontFamily: 'JetBrains Mono', fontWeight: 700, color: barColor }}>{stat.percent}%</span>
                   </div>
-                  <div style={{ width: '100%', height: 4, background: 'rgba(255, 255, 255, 0.05)', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ width: '100%', height: 4, background: 'var(--border-default)', borderRadius: 2, overflow: 'hidden' }}>
                     <div style={{ width: `${stat.percent}%`, height: '100%', background: barColor, borderRadius: 2 }} />
                   </div>
                 </div>
@@ -355,22 +332,22 @@ export default function ThreatIntelPage() {
       <div className="command-hero" style={{ padding: 'var(--space-6) var(--space-8)' }}>
 
         {/* Active Group Header Banner */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-4)', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: 'var(--space-4)', marginBottom: 'var(--space-5)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-4)', borderBottom: '1px solid var(--border-subtle)', paddingBottom: 'var(--space-4)', marginBottom: 'var(--space-5)' }}>
           <div style={{ maxWidth: 640 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-              <span className="telemetry-pill" style={{ background: 'rgba(251, 146, 60, 0.15)', color: '#fb923c', border: '1px solid rgba(251, 146, 60, 0.3)' }}>
+              <span className="telemetry-pill" style={{ background: 'rgba(251, 146, 60, 0.15)', color: '#ea580c', border: '1px solid rgba(251, 146, 60, 0.3)' }}>
                 {activeActor.origin}
               </span>
               {activeActor.aliases.map(a => (
                 <span key={a} style={{
                   fontFamily: 'JetBrains Mono', fontSize: 10, padding: '2px 8px', borderRadius: 4,
-                  background: 'rgba(255, 255, 255, 0.05)', color: '#c084fc', border: '1px solid var(--border-subtle)',
+                  background: 'var(--bg-tertiary)', color: 'var(--purple-600)', border: '1px solid var(--border-subtle)', fontWeight: 700,
                 }}>
                   {a}
                 </span>
               ))}
             </div>
-            <h2 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#f8fafc', letterSpacing: '-0.02em' }}>
+            <h2 style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
               {activeActor.name}
             </h2>
             <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.5 }}>
@@ -380,8 +357,8 @@ export default function ThreatIntelPage() {
               <span style={{ fontSize: 10, color: 'var(--text-tertiary)', fontWeight: 700 }}>TARGET SECTORS:</span>
               {activeActor.sector.map(sec => (
                 <span key={sec} style={{
-                  fontSize: 10, padding: '1px 7px', borderRadius: 'var(--radius-full)',
-                  background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8', fontWeight: 600,
+                  fontSize: 10, padding: '2px 8px', borderRadius: 'var(--radius-full)',
+                  background: 'rgba(2, 132, 199, 0.12)', color: 'var(--color-info)', fontWeight: 700,
                 }}>
                   {sec}
                 </span>
@@ -392,7 +369,7 @@ export default function ThreatIntelPage() {
           {/* Defense Posture Against this Group */}
           <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
-            background: 'rgba(13, 18, 31, 0.75)', padding: 'var(--space-3) var(--space-5)',
+            background: 'var(--bg-tertiary)', padding: 'var(--space-3) var(--space-5)',
             borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)',
           }}>
             <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
@@ -423,11 +400,11 @@ export default function ThreatIntelPage() {
                 key={v.id}
                 onClick={() => setViewMode(v.id)}
                 style={{
-                  fontSize: 11, padding: '4px 12px', borderRadius: 'var(--radius-md)',
-                  background: viewMode === v.id ? 'linear-gradient(135deg, #7c3aed, #06b6d4)' : 'rgba(255, 255, 255, 0.04)',
-                  border: `1px solid ${viewMode === v.id ? '#06b6d4' : 'var(--border-subtle)'}`,
-                  color: viewMode === v.id ? '#ffffff' : 'var(--text-secondary)',
-                  fontWeight: viewMode === v.id ? 700 : 500,
+                  fontSize: 11, padding: '5px 12px', borderRadius: 'var(--radius-md)',
+                  background: viewMode === v.id ? 'linear-gradient(135deg, #7c3aed, #06b6d4)' : 'var(--bg-tertiary)',
+                  border: `1px solid ${viewMode === v.id ? '#06b6d4' : 'var(--border-default)'}`,
+                  color: viewMode === v.id ? '#ffffff' : 'var(--text-primary)',
+                  fontWeight: viewMode === v.id ? 700 : 600,
                   cursor: 'pointer',
                   transition: 'all var(--transition-fast)',
                 }}
@@ -454,19 +431,18 @@ export default function ThreatIntelPage() {
         {viewMode === 'killchain' && (
           <div style={{ overflowX: 'auto', paddingBottom: 'var(--space-3)' }}>
             <div style={{ display: 'flex', gap: 'var(--space-3)', minWidth: 'max-content' }}>
-              {KILL_CHAIN_TACTICS.map((tacticId, idx) => {
-                const tacticObj = TACTIC_MAP[tacticId] || { name: tacticId };
-                const ttpList = actorTtpByTactic[tacticId] || [];
+              {TACTICS.map((tacticObj, idx) => {
+                const ttpList = actorTtpByTactic[tacticObj.id] || [];
                 const hasTtps = ttpList.length > 0;
 
                 return (
                   <div
-                    key={tacticId}
+                    key={tacticObj.id}
                     style={{
                       width: 175,
                       display: 'flex', flexDirection: 'column', gap: 6,
-                      background: hasTtps ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.005)',
-                      border: `1px solid ${hasTtps ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.03)'}`,
+                      background: hasTtps ? 'var(--bg-tertiary)' : 'var(--bg-card)',
+                      border: `1px solid ${hasTtps ? 'var(--border-default)' : 'var(--border-subtle)'}`,
                       borderRadius: 'var(--radius-md)',
                       padding: 'var(--space-3)',
                       opacity: hasTtps ? 1 : 0.45,
@@ -475,11 +451,11 @@ export default function ThreatIntelPage() {
                     {/* Tactic Column Title */}
                     <div style={{
                       fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em',
-                      color: hasTtps ? '#22d3ee' : 'var(--text-tertiary)',
+                      color: hasTtps ? '#0891b2' : 'var(--text-tertiary)',
                       borderBottom: '1px solid var(--border-subtle)', paddingBottom: 4,
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     }}>
-                      <span className="truncate">{idx + 1}. {tacticObj.name.split(' ')[0]}</span>
+                      <span className="truncate" title={tacticObj.name}>{idx + 1}. {tacticObj.name}</span>
                       <span style={{ fontSize: 9, fontFamily: 'JetBrains Mono' }}>{ttpList.length}</span>
                     </div>
 
@@ -497,11 +473,12 @@ export default function ThreatIntelPage() {
                               style={{
                                 padding: '6px 8px',
                                 borderRadius: 6,
-                                background: 'rgba(13, 18, 31, 0.9)',
-                                border: `1px solid ${color}55`,
+                                background: 'var(--bg-card)',
+                                border: `1px solid ${color}77`,
                                 cursor: 'pointer',
                                 transition: 'all var(--transition-fast)',
                                 display: 'flex', flexDirection: 'column', gap: 2,
+                                boxShadow: 'var(--shadow-sm)',
                               }}
                               onMouseEnter={e => {
                                 e.currentTarget.style.borderColor = color;
@@ -509,13 +486,13 @@ export default function ThreatIntelPage() {
                                 e.currentTarget.style.boxShadow = `0 0 10px ${color}33`;
                               }}
                               onMouseLeave={e => {
-                                e.currentTarget.style.borderColor = `${color}55`;
+                                e.currentTarget.style.borderColor = `${color}77`;
                                 e.currentTarget.style.transform = 'none';
-                                e.currentTarget.style.boxShadow = 'none';
+                                e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
                               }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9, fontWeight: 700, color: '#c084fc' }}>
+                                <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9, fontWeight: 700, color: 'var(--purple-600)' }}>
                                   {ttp.id}
                                 </span>
                                 <span style={{
@@ -525,7 +502,7 @@ export default function ThreatIntelPage() {
                                   {level === 'none' ? 'GAP' : `${ttp.score}%`}
                                 </span>
                               </div>
-                              <div style={{ fontSize: 10, fontWeight: 600, color: '#f8fafc', lineHeight: 1.2 }} className="truncate">
+                              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }} className="truncate">
                                 {ttp.name}
                               </div>
                             </div>

@@ -7,6 +7,12 @@ class AnalysisRequest(BaseModel):
     name: str = Field(default="Analyse", max_length=300)
     actorIds: list[str] = Field(default_factory=list)
     ruleIds: list[int] | None = None  # None → use ALL imported rules
+    solutions: list[dict] = Field(default_factory=list)
+    securitySolutions: list[dict] = Field(default_factory=list)
+    detection_methods: list[dict] = Field(default_factory=list)
+    detectionMethods: list[dict] = Field(default_factory=list)
+    controls: list[str] = Field(default_factory=list)
+    maturity: dict[str, str] = Field(default_factory=dict)
 
 
 class RuleOut(BaseModel):

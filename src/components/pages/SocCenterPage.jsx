@@ -109,14 +109,10 @@ export default function SocCenterPage({ onNavigate }) {
       {/* ════════════════════════════════════════════════════════════
        * HEADER & TELEMETRY STRIP
        * ════════════════════════════════════════════════════════════ */}
-      <div style={{
+      <div className="glass-panel" style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexWrap: 'wrap', gap: 'var(--space-4)',
         padding: 'var(--space-4) var(--space-6)',
-        borderRadius: 'var(--radius-lg)',
-        background: 'rgba(13, 18, 31, 0.65)',
-        border: '1px solid var(--border-subtle)',
-        backdropFilter: 'blur(16px)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
           <div style={{
@@ -128,7 +124,7 @@ export default function SocCenterPage({ onNavigate }) {
             <Icon name="shield" size={22} />
           </div>
           <div>
-            <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 900, letterSpacing: '-0.02em', color: '#f8fafc' }}>
+            <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
               SOC Defenses & Detection Architecture
             </h1>
             <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
@@ -140,15 +136,15 @@ export default function SocCenterPage({ onNavigate }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
           <div className="telemetry-pill">
             <span className="pulse-dot online" />
-            <span>SOLUTIONS: <strong style={{ color: '#f8fafc' }}>{activeSolutions.length}</strong></span>
+            <span>SOLUTIONS: <strong>{activeSolutions.length}</strong></span>
           </div>
           <div className="telemetry-pill">
-            <Icon name="crosshair" size={13} style={{ color: '#22d3ee' }} />
-            <span>METHODS: <strong style={{ color: '#22d3ee' }}>{activeMethods.length}</strong></span>
+            <Icon name="crosshair" size={13} style={{ color: '#0891b2' }} />
+            <span>METHODS: <strong style={{ color: '#0891b2' }}>{activeMethods.length}</strong></span>
           </div>
           <div className="telemetry-pill">
-            <Icon name="fileCode" size={13} style={{ color: '#fb923c' }} />
-            <span>RULES: <strong style={{ color: '#fb923c' }}>{detectionRules.length}</strong></span>
+            <Icon name="fileCode" size={13} style={{ color: '#ea580c' }} />
+            <span>RULES: <strong style={{ color: '#ea580c' }}>{detectionRules.length}</strong></span>
           </div>
         </div>
       </div>
@@ -177,9 +173,9 @@ export default function SocCenterPage({ onNavigate }) {
                 padding: 'var(--space-2) var(--space-4)',
                 borderRadius: 'var(--radius-md)',
                 background: isActive ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(6, 182, 212, 0.1))' : 'transparent',
-                border: `1px solid ${isActive ? 'rgba(139, 92, 246, 0.4)' : 'transparent'}`,
-                color: isActive ? '#f8fafc' : 'var(--text-secondary)',
-                fontWeight: isActive ? 700 : 500,
+                border: `1px solid ${isActive ? 'var(--purple-400)' : 'transparent'}`,
+                color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                fontWeight: isActive ? 800 : 500,
                 fontSize: 'var(--text-sm)',
                 cursor: 'pointer',
                 transition: 'all var(--transition-fast)',
@@ -189,9 +185,9 @@ export default function SocCenterPage({ onNavigate }) {
               <span>{tab.label}</span>
               {tab.count !== null && (
                 <span style={{
-                  fontSize: 10, padding: '1px 6px', borderRadius: 'var(--radius-full)',
-                  background: isActive ? '#7c3aed' : 'rgba(255, 255, 255, 0.06)',
-                  color: isActive ? 'white' : 'var(--text-tertiary)',
+                  fontSize: 10, padding: '2px 7px', borderRadius: 'var(--radius-full)',
+                  background: isActive ? '#7c3aed' : 'var(--bg-tertiary)',
+                  color: isActive ? 'white' : 'var(--text-secondary)',
                   fontFamily: 'JetBrains Mono', fontWeight: 700,
                 }}>
                   {tab.count}
@@ -999,8 +995,8 @@ function RulesManager({ rules = [], onNavigate }) {
 function LiveCoverageSection() {
   const { state } = useApp();
   const preview = useMemo(
-    () => runGapAnalysis(state.detectionRules, state.selectedActors),
-    [state.detectionRules, state.selectedActors],
+    () => runGapAnalysis(state.detectionRules, state.selectedActors, state.securitySolutions, state.detectionMethods),
+    [state.detectionRules, state.selectedActors, state.securitySolutions, state.detectionMethods],
   );
 
   const coveredPct = preview.totalTechniques ? Math.round((preview.coveredCount / preview.totalTechniques) * 100) : 0;
@@ -1014,7 +1010,7 @@ function LiveCoverageSection() {
             🗺️ Live ATT&CK Matrix Coverage Preview
           </h3>
           <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
-            Real-time technique coverage computed dynamically from active detection rules
+            Real-time technique coverage computed dynamically from solutions, methods, and rules
           </p>
         </div>
         <span className="telemetry-pill">
@@ -1043,8 +1039,8 @@ function LiveCoverageSection() {
 function CoverageGapsSection({ onNavigate }) {
   const { state } = useApp();
   const preview = useMemo(
-    () => runGapAnalysis(state.detectionRules, state.selectedActors),
-    [state.detectionRules, state.selectedActors],
+    () => runGapAnalysis(state.detectionRules, state.selectedActors, state.securitySolutions, state.detectionMethods),
+    [state.detectionRules, state.selectedActors, state.securitySolutions, state.detectionMethods],
   );
 
   return (

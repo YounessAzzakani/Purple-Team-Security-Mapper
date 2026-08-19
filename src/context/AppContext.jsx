@@ -23,7 +23,15 @@ function loadTheme() {
   return 'dark';
 }
 
-const VALID_PAGES = ['dashboard', 'soc', 'threat'];
+const VALID_PAGES = ['dashboard', 'soc', 'threat', 'scan', 'history'];
+
+function getPageFromHash() {
+  try {
+    const raw = window.location.hash.replace(/^#\/?/, '').toLowerCase().trim();
+    if (VALID_PAGES.includes(raw)) return raw;
+  } catch { /* ignore */ }
+  return 'dashboard';
+}
 
 export const DEFAULT_SECURITY_SOLUTIONS = [
   {
@@ -153,11 +161,12 @@ const initialState = {
 
 function buildInitialState() {
   const stored = loadFromStorage();
-  if (!stored) return { ...initialState, theme: loadTheme() };
+  const initialPage = getPageFromHash();
+  if (!stored) return { ...initialState, theme: loadTheme(), activePage: initialPage };
   return {
     ...initialState,
     theme: loadTheme(),
-    activePage: 'dashboard',
+    activePage: initialPage,
     securitySolutions: stored.securitySolutions?.length ? stored.securitySolutions : DEFAULT_SECURITY_SOLUTIONS,
     detectionMethods: stored.detectionMethods?.length ? stored.detectionMethods : DEFAULT_DETECTION_METHODS,
     selectedActors: stored.selectedActors || [],
@@ -221,6 +230,13 @@ function reducer(state, action) {
     }
     case 'SET_HISTORY':
       return { ...state, analysesHistory: action.analyses };
+    case 'DELETE_ANALYSIS':
+      return {
+        ...state,
+        analysesHistory: state.analysesHistory.filter(a => a.id !== action.id),
+        analysisResult: state.analysisMeta?.id === action.id ? null : state.analysisResult,
+        analysisMeta: state.analysisMeta?.id === action.id ? null : state.analysisMeta,
+      };
     case 'SET_ANALYSIS':
       return {
         ...state,
@@ -252,6 +268,26 @@ function reducer(state, action) {
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, undefined, buildInitialState);
+
+  // Sync URL hash with activePage
+  useEffect(() => {
+    const currentHash = window.location.hash.replace(/^#\/?/, '').toLowerCase().trim();
+    if (currentHash !== state.activePage) {
+      window.location.hash = `#/${state.activePage}`;
+    }
+  }, [state.activePage]);
+
+  // Listen to browser Back/Forward navigation
+  useEffect(() => {
+    const handleHashChange = () => {
+      const page = getPageFromHash();
+      if (page !== state.activePage) {
+        dispatch({ type: 'SET_PAGE', page });
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [state.activePage]);
 
   // Persist session inputs
   useEffect(() => {
@@ -399,12 +435,33 @@ export function AppProvider({ children }) {
     dispatch({ type: 'TOGGLE_DETECTION_METHOD', id });
   }, []);
 
-  const runAnalysis = useCallback(async () => {
+  const deleteAnalysis = useCallback(async (id) => {
     dispatch({ type: 'SET_LOADING', loading: true });
     try {
+      await api.deleteAnalysis(id);
+      dispatch({ type: 'DELETE_ANALYSIS', id });
+      await refreshHistory();
+    } catch (err) {
+      dispatch({ type: 'SET_API_ERROR', error: err.message });
+      throw err;
+    } finally {
+      dispatch({ type: 'SET_LOADING', loading: false });
+    }
+  }, [refreshHistory]);
+
+  const runAnalysis = useCallback(async (options = {}) => {
+    dispatch({ type: 'SET_LOADING', loading: true });
+    try {
+      const scanName = options.name || `Purple Team Scan — ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      const actorIds = options.actorIds ?? state.selectedActors;
+      const solutions = options.solutions ?? state.securitySolutions;
+      const detectionMethods = options.detectionMethods ?? state.detectionMethods;
+
       const body = await api.runAnalysis({
-        name: `Analysis ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
-        actorIds: state.selectedActors,
+        name: scanName,
+        actorIds: actorIds,
+        solutions: solutions,
+        detectionMethods: detectionMethods,
       });
       dispatch({ type: 'SET_ANALYSIS', result: body.result, meta: body.analysis });
       refreshHistory().catch(() => {});
@@ -413,7 +470,7 @@ export function AppProvider({ children }) {
       dispatch({ type: 'SET_API_ERROR', error: err.message });
       throw err;
     }
-  }, [state.selectedActors, refreshHistory]);
+  }, [state.selectedActors, state.securitySolutions, state.detectionMethods, refreshHistory]);
 
   const setPage = useCallback((page) => dispatch({ type: 'SET_PAGE', page }), []);
   const toggleActor = useCallback((actorId) => dispatch({ type: 'TOGGLE_ACTOR', actorId }), []);
@@ -439,6 +496,7 @@ export function AppProvider({ children }) {
       toggleDetectionMethod,
       runAnalysis,
       loadAnalysis,
+      deleteAnalysis,
       refreshHistory,
       reset,
     }}>

@@ -50,12 +50,22 @@ writeFileSync(enginePath, fixedSrc, 'utf8');
 
 const { runGapAnalysis } = await import(pathToFileURL(enginePath).href);
 
-const result = runGapAnalysis(
-  input.enabledControls,
-  input.controlMaturity,
-  input.detectionRules,
-  input.selectedActors
-);
+let result;
+if (input.detectionRules && !input.enabledControls) {
+  result = runGapAnalysis(
+    input.detectionRules,
+    input.selectedActors || [],
+    input.securitySolutions || [],
+    input.detectionMethods || []
+  );
+} else {
+  result = runGapAnalysis(
+    input.enabledControls || [],
+    input.controlMaturity || {},
+    input.detectionRules || [],
+    input.selectedActors || []
+  );
+}
 
 // ── Normalization (must match the Python side exactly) ──
 function normalize(res) {

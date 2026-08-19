@@ -58,12 +58,24 @@ def _summary(a: Analysis) -> dict:
 @router.post("")
 def create_analysis(payload: AnalysisRequest, db: Session = Depends(get_db)):
     rules = _load_rules(db, payload.ruleIds)
-    result = run_gap_analysis(rules, payload.actorIds)
+    solutions = payload.solutions or payload.securitySolutions
+    detection_methods = payload.detection_methods or payload.detectionMethods
+
+    result = run_gap_analysis(
+        detection_rules=rules,
+        selected_actors=payload.actorIds,
+        security_solutions=solutions,
+        detection_methods=detection_methods,
+    )
 
     snapshot = {
         "actorIds": payload.actorIds,
         "ruleIds": payload.ruleIds if payload.ruleIds is not None else "all",
         "rules": rules,
+        "securitySolutions": solutions,
+        "detectionMethods": detection_methods,
+        "controls": payload.controls,
+        "maturity": payload.maturity,
     }
 
     analysis = Analysis(name=payload.name, inputs_snapshot=snapshot, result=result)
@@ -90,6 +102,16 @@ def get_analysis(analysis_id: int, db: Session = Depends(get_db)):
         "inputs": analysis.inputs_snapshot,
         "result": analysis.result,
     }
+
+
+@router.delete("/{analysis_id}")
+def delete_analysis(analysis_id: int, db: Session = Depends(get_db)):
+    analysis = db.get(Analysis, analysis_id)
+    if analysis is None:
+        raise HTTPException(status_code=404, detail="Analyse introuvable")
+    db.delete(analysis)
+    db.commit()
+    return {"message": "Analyse supprimée", "id": analysis_id}
 
 
 @router.get("/{analysis_id}/compare")
